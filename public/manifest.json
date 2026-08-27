@@ -1,0 +1,9 @@
+{
+  "name": "동양연합 영농형 태양광 스마트 모니터링",
+  "short_name": "동양 태양광",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#1a251e",
+  "theme_color": "#4b6b55",
+  "orientation": "any"
+}
