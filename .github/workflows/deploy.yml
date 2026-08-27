@@ -1,0 +1,38 @@
+name: Deploy Frontend
+
+# main/master 에 push 하면 빌드 후 서버로 자동 배포합니다.
+# (수동 실행도 가능: Actions 탭 → Run workflow)
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Copy dist to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "dist/*"
+          target: "~/projects/smartfarm_frontend/dist"
+          strip_components: 1
+          rm: true # 배포 전 기존 파일 정리(오래된 해시 에셋 제거)
