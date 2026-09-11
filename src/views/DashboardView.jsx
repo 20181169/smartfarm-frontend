@@ -103,11 +103,15 @@ export default function DashboardView() {
       <div>
         <div className="view-title" style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           {plant.name} 발전소 현황
-          {isLive && <span className="badge badge-active" style={{ fontSize: 11 }}>🛰️ 백엔드 실시간</span>}
+          {isLive && (plant._stale
+            ? <span className="badge badge-warning" style={{ fontSize: 11 }}>🛰️ 백엔드 연결됨 · 수신 지연</span>
+            : <span className="badge badge-active" style={{ fontSize: 11 }}>🛰️ 백엔드 실시간</span>)}
         </div>
         <div className="view-sub">
           {isLive
-            ? '인버터·환경센서 실시간 텔레메트리 (백엔드 연동) · 시세/이력은 데모'
+            ? plant._stale
+              ? `백엔드 연동됨 · 계측 데이터 수신 지연 (마지막 수신: ${plant._lastUpdatedAt ? new Date(plant._lastUpdatedAt).toLocaleString('ko-KR') : '확인 불가'}) · 시세/이력은 데모`
+              : '인버터·환경센서 실시간 텔레메트리 (백엔드 연동) · 시세/이력은 데모'
             : '실시간 발전 · 수익 · AI 진단 통합 모니터링'}
         </div>
       </div>

@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react'
 import { Menu, Clock, Sun, Moon, LogOut, LogIn, Radio } from 'lucide-react'
 import { useApp } from '../../context/useApp'
-import { PLANTS } from '../../data/plants'
 import { nowStamp } from '../../lib/format'
 import logo from '/logo.png'
 
 export default function TopHeader({ onToggleNav, onOpenAuth }) {
-  const { plant, plantId, selectPlant, canSwitchPlant, user, logout, theme, toggleTheme, connected } = useApp()
+  const { plant, plantId, plantList, selectPlant, canSwitchPlant, user, logout, theme, toggleTheme, connected } = useApp()
+  // 현재 선택 발전소가 목록에 없으면(데모↔백엔드 전환 직후) 앞에 붙여 셀렉터 값 불일치 방지.
+  const options = plantList.some((p) => p.id === plantId) ? plantList : [plant, ...plantList]
   const [stamp, setStamp] = useState(nowStamp())
 
   useEffect(() => {
@@ -31,9 +32,9 @@ export default function TopHeader({ onToggleNav, onOpenAuth }) {
           onChange={(e) => selectPlant(e.target.value)}
           title={canSwitchPlant ? '발전소 선택' : '담당 발전소 전용 계정입니다'}
         >
-          {Object.values(PLANTS).map((p) => (
+          {options.map((p) => (
             <option key={p.id} value={p.id}>
-              [{p.id}] {p.shortName} ({p.capacityKw}kW)
+              {p._backend ? `🛰️ ${p.shortName}` : `[${p.id}] ${p.shortName}`} ({p.capacityKw ?? '-'}kW)
             </option>
           ))}
         </select>
@@ -51,8 +52,8 @@ export default function TopHeader({ onToggleNav, onOpenAuth }) {
 
         {user ? (
           <>
-            <span className="pill hide-sm">
-              {user.role === '발전사업자' ? '사업자' : '관리자'} · {user.name}
+            <span className="pill hide-sm" title={user.roleCode || ''}>
+              {user.roleName || (user.role === '발전사업자' ? '사업자' : '관리자')} · {user.name}
             </span>
             <button className="btn-ghost" onClick={logout}>
               <LogOut /> 로그아웃

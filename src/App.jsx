@@ -6,6 +6,7 @@ import EquipmentView from './views/EquipmentView'
 import CalendarView from './views/CalendarView'
 import ReportView from './views/ReportView'
 import OverviewView from './views/OverviewView'
+import OversightView from './views/OversightView'
 import ErrorsView from './views/ErrorsView'
 import SettingsView from './views/SettingsView'
 import ComparisonView from './views/ComparisonView'
@@ -21,6 +22,7 @@ export default function App() {
             <Route path="calendar" element={<CalendarView />} />
             <Route path="report" element={<ReportView />} />
             <Route path="overview" element={<OverviewView />} />
+            <Route path="oversight" element={<OversightView />} />
             <Route path="errors" element={<ErrorsView />} />
             <Route path="settings" element={<SettingsView />} />
             <Route path="comparison" element={<ComparisonView />} />

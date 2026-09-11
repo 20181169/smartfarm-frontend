@@ -1,8 +1,98 @@
-import { useState } from 'react'
-import { ScrollText } from 'lucide-react'
+import { useState, useEffect, useCallback } from 'react'
+import { ScrollText, Server, Wifi, RefreshCw } from 'lucide-react'
 import { useApp } from '../context/useApp'
+import { apiGetDevices, getToken } from '../lib/api'
 import InverterLogModal from '../components/modals/InverterLogModal'
 import MpptLogModal from '../components/modals/MpptLogModal'
+
+const DEVICE_TYPE_LABEL = {
+  inverter: '인버터',
+  environment_sensor: '환경센서',
+  weather_station: '기상관측',
+  camera: '카메라',
+  rtu: 'RTU',
+}
+const DEVICE_STATUS_BADGE = {
+  active: { cls: 'badge-active', label: '운영' },
+  inactive: { cls: 'badge-neutral', label: '정지' },
+  maintenance: { cls: 'badge-warning', label: '점검' },
+  fault: { cls: 'badge-warning', label: '고장' },
+}
+
+// 백엔드 장비 인벤토리 (선택 발전소가 백엔드 발전소일 때만 표시)
+function DeviceInventory({ plantId }) {
+  const [state, setState] = useState('idle') // idle | loading | ok | error
+  const [devices, setDevices] = useState([])
+  const [msg, setMsg] = useState('')
+
+  const load = useCallback(async () => {
+    if (!getToken()) {
+      setState('idle')
+      return
+    }
+    setState('loading')
+    try {
+      const data = await apiGetDevices(plantId)
+      setDevices(data?.items || [])
+      setState('ok')
+    } catch (err) {
+      setState('error')
+      setMsg(
+        err.status === 401
+          ? '로그인이 필요합니다.'
+          : err.status === 0
+            ? '백엔드에 연결할 수 없습니다.'
+            : err.message
+      )
+    }
+  }, [plantId])
+
+  useEffect(() => {
+    load()
+  }, [load])
+
+  return (
+    <div className="card">
+      <div className="card-header">
+        <span className="card-title"><Server /> 장비 인벤토리 (백엔드)</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {state === 'ok' && <span className="badge badge-active"><Wifi size={13} /> 백엔드 연결됨</span>}
+          <button className="icon-btn" onClick={load} title="다시 불러오기"><RefreshCw size={14} /></button>
+        </div>
+      </div>
+
+      {state === 'loading' && <div className="text-muted" style={{ fontSize: 13, padding: '4px 2px' }}>불러오는 중…</div>}
+      {state === 'error' && <div style={{ fontSize: 13, color: 'var(--terracotta)', fontWeight: 600, padding: '4px 2px' }}>{msg}</div>}
+      {state === 'ok' && devices.length === 0 && (
+        <div className="text-muted" style={{ fontSize: 13, padding: '6px 2px' }}>등록된 장비가 없습니다.</div>
+      )}
+      {state === 'ok' && devices.length > 0 && (
+        <div className="table-wrap">
+          <table className="data">
+            <thead>
+              <tr><th>장비명</th><th>종류</th><th>모델</th><th>S/N</th><th>설치일</th><th>상태</th></tr>
+            </thead>
+            <tbody>
+              {devices.map((d) => {
+                const b = DEVICE_STATUS_BADGE[d.status] || { cls: 'badge-neutral', label: d.status || '-' }
+                return (
+                  <tr key={d.device_id}>
+                    <td style={{ textAlign: 'left' }}><strong>{d.name}</strong></td>
+                    <td>{DEVICE_TYPE_LABEL[d.device_type] || d.device_type}</td>
+                    <td>{d.model || '-'}</td>
+                    <td>{d.serial_number || '-'}</td>
+                    <td>{d.install_date || '-'}</td>
+                    <td><span className={`badge ${b.cls}`}>{b.label}</span></td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}
 
 export default function EquipmentView() {
   const { plant } = useApp()
@@ -17,9 +107,11 @@ export default function EquipmentView() {
   return (
     <div className="view stack">
       <div>
-        <div className="view-title">[{plant.id}] {plant.shortName} 설비 현황</div>
+        <div className="view-title">{plant._backend ? plant.name : `[${plant.id}] ${plant.shortName}`} 설비 현황</div>
         <div className="view-sub">인버터 및 MPPT 스트링 실시간 계측</div>
       </div>
+
+      {plant._backend && <DeviceInventory plantId={plant.id} />}
 
       <div className="card">
         <div className="card-header">

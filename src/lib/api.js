@@ -84,6 +84,14 @@ export function apiGetMe() {
   return request('/auth/me') // { user_id, email, name, role_id, status, ... }
 }
 
+/* ----------------------------------------------------------------- Roles */
+
+// 역할 목록(계층형). 공개 엔드포인트. role_id → { role_code, role_name, level } 해석용.
+// level: 10 SYS_ADMIN … 60 INSPECTOR(감독 상한) … 70 PLANT_OPERATOR, 80 VIEWER
+export function apiGetRoles() {
+  return request('/roles', { auth: false }) // { items: [{ role_id, role_code, role_name, level, ... }] }
+}
+
 /* ---------------------------------------------------------------- Plants */
 
 export async function apiGetPlants({ skip = 0, limit = 100 } = {}) {
@@ -135,59 +143,115 @@ function hhmmss(iso) {
   }
 }
 
-// 선택 발전소(site_id=plant_id)의 실시간 텔레메트리를 대시보드용으로 정규화.
-// 인버터: 최신 1건/대 → 합산 출력·일발전량, 환경: 최신 1건.
-export async function apiPlantLive(siteId) {
-  const [inv, env] = await Promise.all([
-    apiRecentInverterTelemetry(siteId, { rangeMinutes: 180, limit: 30 }),
-    apiRecentEnvironmentTelemetry(siteId, { rangeMinutes: 180, limit: 5 }),
-  ])
+const num = (v) => {
+  const n = Number(v)
+  return Number.isFinite(n) ? n : 0
+}
 
-  // inverter_id별 최신값 (records는 그룹 내 시간 내림차순)
-  const seen = new Map()
-  for (const rec of inv?.records || []) {
-    if (!seen.has(rec.inverter_id)) seen.set(rec.inverter_id, rec)
-  }
-  const inverters = [...seen.values()]
-    .sort((a, b) => Number(a.inverter_id) - Number(b.inverter_id))
-    .map((rec) => ({
-      id: Number(rec.inverter_id),
-      powerKw: r2(rec.active_power_kw),
-      dailyKwh: Math.round(rec.daily_energy_kwh ?? 0),
-      voltage: r2(rec.voltage_v),
-      current: r2(rec.current_a),
-      freq: r2(rec.frequency_hz ?? 60),
-      pf: rec.power_factor ?? null,
-      comm: hhmmss(rec.timestamp),
-    }))
+/* ------------------------------------------------------------- Dashboard */
 
-  const currentPowerKw = r2(inverters.reduce((s, i) => s + i.powerKw, 0))
-  const todayGenKwh = Math.round(inverters.reduce((s, i) => s + i.dailyKwh, 0))
+// 발전소 대시보드 종합 현황 (plant_id 기준, 인증 필요).
+// 응답(봉투 없음): { plant, devices, inverters[], environment_sensors[], data_status, collector_health }
+// ※ 예전의 /telemetry/.../recent?site_id= 는 InfluxDB의 site_id(예: site_001) 규약이라
+//   발전소 UUID로는 빈값이 떨어진다. plant_id 기준인 이 엔드포인트가 올바른 경로다.
+export function apiDashboardOverview(plantId, { staleMinutes = 10 } = {}) {
+  return request(
+    `/dashboard/plants/${encodeURIComponent(plantId)}/overview?stale_minutes=${staleMinutes}`
+  )
+}
+
+// overview 응답 → 기존 live(텔레메트리) 형태로 정규화.
+// 백엔드가 주는 계측값(MRT raw_values: grid_* / pv_* 등)만 실데이터로 싣고,
+// 제공하지 않는 값(일발전량 등)은 null 로 두어 상위에서 목값으로 폴백한다.
+export function mapOverviewToLive(ov) {
+  const invRaw = Array.isArray(ov?.inverters) ? ov.inverters : []
+  const inverters = invRaw.map((d, i) => {
+    const rv = d.raw_values || {}
+    const vAvg = num(rv.grid_rs_voltage) || num(rv.grid_st_voltage) || num(rv.grid_tr_voltage)
+    const cAvg = num(rv.grid_r_current) || num(rv.grid_s_current) || num(rv.grid_t_current)
+    return {
+      id: i + 1,
+      deviceId: d.device_id,
+      powerKw: r2(num(rv.grid_power)), // 계통(AC) 유효전력
+      dcPowerKw: r2(num(rv.pv_power)), // DC 입력전력
+      dailyKwh: 0, // overview 미제공
+      voltage: r2(vAvg),
+      current: r2(cAvg),
+      freq: r2(num(rv.grid_frequency) || 60),
+      pf: rv.grid_power_factor ?? null,
+      comm: hhmmss(d.measured_at),
+      stale: !!d.is_stale,
+    }
+  })
+
+  const currentPowerKw = r2(inverters.reduce((s, iv) => s + iv.powerKw, 0))
   const acVolt = inverters.length
-    ? r2(inverters.reduce((s, i) => s + i.voltage, 0) / inverters.length)
+    ? r2(inverters.reduce((s, iv) => s + iv.voltage, 0) / inverters.length)
     : null
 
-  const e = env?.records?.[0] || null
-  const environment = e
-    ? {
-        airTemp: e.air_temperature_c,
-        humidity: e.air_humidity_pct,
-        soilTemp: e.soil_temperature_c,
-        soilMoisture: e.soil_moisture_pct,
-        irradiance: e.solar_irradiance_wm2,
-        wind: e.wind_speed_ms,
-        ts: hhmmss(e.timestamp),
+  // 환경센서: 지연(stale)이 아니고 유효값이 있을 때만 사용(죽은 센서의 0값 노출 방지).
+  const envRaw = (Array.isArray(ov?.environment_sensors) ? ov.environment_sensors : [])[0] || null
+  let environment = null
+  if (envRaw && !envRaw.is_stale) {
+    const r = envRaw.raw_values || {}
+    if ([r.temperature, r.humidity, r.solar].some((x) => num(x) > 0)) {
+      environment = {
+        airTemp: num(r.temperature),
+        humidity: num(r.humidity),
+        soilTemp: null, // 기상형 센서 → 토양값 없음
+        soilMoisture: null,
+        irradiance: num(r.solar),
+        wind: num(envRaw.wind_speed_ms ?? r.wind_speed),
+        ts: hhmmss(envRaw.measured_at),
       }
-    : null
+    }
+  }
 
+  const ds = ov?.data_status || {}
   return {
     inverters,
-    currentPowerKw,
-    todayGenKwh,
+    currentPowerKw, // 실측(오프라인이면 0)
+    todayGenKwh: null, // overview 미제공 → 상위에서 목값 폴백
     acVolt,
     acFreq: inverters[0]?.freq ?? 60,
     environment,
     hasData: inverters.length > 0 || !!environment,
+    stale: !!ds.is_stale,
+    dataStatus: ds.status || null, // OK | STALE | ...
+    lastUpdatedAt: ds.last_updated_at || null,
+    collectorStatus: ov?.collector_health?.overall_status || null,
     updatedAt: hhmmss(new Date().toISOString()),
   }
+}
+
+// 선택 발전소(plant_id)의 실시간 현황을 대시보드용으로 반환.
+export async function apiPlantLive(plantId) {
+  const ov = await apiDashboardOverview(plantId)
+  return mapOverviewToLive(ov)
+}
+
+/* ---------------------------------------------------------------- Devices */
+
+// 발전소 장비 인벤토리 조회. plantId 생략 시 전체.
+// 응답(봉투 언랩): { items: [{ device_id, name, device_type, model, serial_number, install_date, status, ... }], total }
+export function apiGetDevices(plantId) {
+  const q = plantId ? `?plant_id=${encodeURIComponent(plantId)}` : ''
+  return request(`/devices${q}`)
+}
+
+// 전체 발전소 + 각 발전소 overview 를 함께 조회 (발전소비교·에러정보 화면용).
+// overview 조회가 실패한 발전소는 overview/live=null 로 채워 목록은 유지한다.
+export async function apiPlantsWithOverview() {
+  const data = await apiGetPlants({ limit: 100 })
+  const items = data?.items || []
+  return Promise.all(
+    items.map(async (plant) => {
+      try {
+        const overview = await apiDashboardOverview(plant.plant_id)
+        return { plant, overview, live: mapOverviewToLive(overview) }
+      } catch {
+        return { plant, overview: null, live: null }
+      }
+    })
+  )
 }

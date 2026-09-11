@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, Cpu, CalendarDays, FileText,
-  Factory, AlertTriangle, Settings, BarChart3,
+  Factory, AlertTriangle, Settings, BarChart3, ShieldCheck,
 } from 'lucide-react'
 
 export const NAV_ITEMS = [
@@ -9,6 +9,7 @@ export const NAV_ITEMS = [
   { to: '/calendar', label: '달력보기', icon: CalendarDays },
   { to: '/report', label: '보고서', icon: FileText },
   { to: '/overview', label: '발전소현황', icon: Factory },
+  { to: '/oversight', label: '영농이행 감독', icon: ShieldCheck, supervisorOnly: true },
   { to: '/errors', label: '에러정보', icon: AlertTriangle },
   { to: '/settings', label: '설정', icon: Settings },
   { to: '/comparison', label: '발전소비교', icon: BarChart3 },

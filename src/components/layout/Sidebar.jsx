@@ -1,12 +1,15 @@
 import { NavLink } from 'react-router-dom'
 import { NAV_ITEMS } from './navConfig'
+import { useApp } from '../../context/useApp'
 
 export default function Sidebar({ open, onClose }) {
+  const { isSupervisor } = useApp()
+  const items = NAV_ITEMS.filter((it) => !it.supervisorOnly || isSupervisor)
   return (
     <>
       <aside className={`sidebar ${open ? 'open' : ''}`}>
         <ul className="nav-list">
-          {NAV_ITEMS.map(({ to, label, icon: Icon, end }) => (
+          {items.map(({ to, label, icon: Icon, end }) => (
             <li key={to}>
               <NavLink
                 to={to}

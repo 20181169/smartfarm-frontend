@@ -18,9 +18,16 @@ const STATUS_BADGE = {
 
 // 백엔드(FastAPI) 실시간 발전소 목록 — 연결 상태에 따라 실데이터/안내 표시
 function BackendPlants() {
+  const { selectPlant } = useApp()
+  const navigate = useNavigate()
   const [state, setState] = useState('idle') // idle | loading | ok | error
   const [plants, setPlants] = useState([])
   const [msg, setMsg] = useState('')
+
+  const openInDashboard = (id) => {
+    selectPlant(id)
+    navigate('/')
+  }
 
   const load = useCallback(async () => {
     if (!getToken()) {
@@ -78,6 +85,9 @@ function BackendPlants() {
       )}
       {state === 'ok' && plants.length > 0 && (
         <div className="table-wrap">
+          <div className="text-muted" style={{ fontSize: 12, padding: '0 2px 6px' }}>
+            행을 클릭하면 해당 발전소를 대시보드에서 실데이터로 엽니다.
+          </div>
           <table className="data">
             <thead>
               <tr><th>발전소명</th><th>용량(kW)</th><th>상태</th><th>주소</th><th>위경도</th></tr>
@@ -86,7 +96,7 @@ function BackendPlants() {
               {plants.map((p) => {
                 const b = STATUS_BADGE[p.status] || STATUS_BADGE.INACTIVE
                 return (
-                  <tr key={p.id}>
+                  <tr key={p.id} onClick={() => openInDashboard(p.id)} style={{ cursor: 'pointer' }} title="대시보드에서 열기">
                     <td style={{ textAlign: 'left' }}><strong>{p.name}</strong></td>
                     <td>{p.capacityKw ?? '-'}</td>
                     <td><span className={`badge ${b.cls}`}>{b.label}</span></td>
