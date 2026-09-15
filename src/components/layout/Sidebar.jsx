@@ -3,8 +3,9 @@ import { NAV_ITEMS } from './navConfig'
 import { useApp } from '../../context/useApp'
 
 export default function Sidebar({ open, onClose }) {
-  const { isSupervisor } = useApp()
-  const items = NAV_ITEMS.filter((it) => !it.supervisorOnly || isSupervisor)
+  const { menuRole } = useApp()
+  // 현재 역할(발전사업자/감독관·관리자) 메뉴 + 공통 메뉴만 노출
+  const items = NAV_ITEMS.filter((it) => it.group === 'both' || it.group === menuRole)
   return (
     <>
       <aside className={`sidebar ${open ? 'open' : ''}`}>

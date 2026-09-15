@@ -262,6 +262,12 @@ export function AppProvider({ children }) {
     setPlantId(DEFAULT_PLANT_ID)
   }, [])
 
+  // 역할 메뉴 그룹: 실계정은 level로, 데모는 선택한 demoRole로, 미로그인은 owner(발전사업자 화면).
+  const menuRole =
+    user?.level != null
+      ? (user.level <= SUPERVISOR_MAX_LEVEL ? 'supervisor' : 'owner')
+      : user?.demoRole || 'owner'
+
   const value = {
     plantId,
     plant,
@@ -271,9 +277,10 @@ export function AppProvider({ children }) {
     weather,
     connected,
     backendPlants,
+    menuRole,
     isLive: !!(plant && plant._live),
-    // 영농이행 감독 권한: 데모/미로그인(레벨 없음)은 허용, API 계정은 level ≤ 60(SYS~INSPECTOR).
-    isSupervisor: user?.level == null ? true : user.level <= SUPERVISOR_MAX_LEVEL,
+    // 감독 권한 = 메뉴 그룹이 supervisor (실계정 level≤60, 또는 데모에서 감독/관리자 선택).
+    isSupervisor: menuRole === 'supervisor',
     selectPlant,
     toggleTheme,
     login,
