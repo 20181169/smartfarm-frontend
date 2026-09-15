@@ -1,5 +1,6 @@
-import { HashRouter, Routes, Route } from 'react-router-dom'
+import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AppProvider } from './context/AppContext'
+import { useApp } from './context/useApp'
 import Layout from './components/layout/Layout'
 import DashboardView from './views/DashboardView'
 import EquipmentView from './views/EquipmentView'
@@ -17,13 +18,19 @@ import SettingsView from './views/SettingsView'
 import ComparisonView from './views/ComparisonView'
 import RequireSupervisor from './components/RequireSupervisor'
 
+// 역할별 홈: 감독관·관리자는 영농이행 감독으로, 발전사업자는 현재상태 대시보드로.
+function RoleHome() {
+  const { menuRole } = useApp()
+  return menuRole === 'supervisor' ? <Navigate to="/oversight" replace /> : <DashboardView />
+}
+
 export default function App() {
   return (
     <AppProvider>
       <HashRouter>
         <Routes>
           <Route element={<Layout />}>
-            <Route index element={<DashboardView />} />
+            <Route index element={<RoleHome />} />
             <Route path="equipment" element={<EquipmentView />} />
             <Route path="calendar" element={<CalendarView />} />
             <Route path="report" element={<ReportView />} />
