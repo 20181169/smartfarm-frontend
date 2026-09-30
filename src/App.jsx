@@ -39,7 +39,7 @@ export default function App() {
             <Route path="oversight" element={<OversightView />} />
             <Route path="site-detail" element={<RequireSupervisor><SiteDetailView /></RequireSupervisor>} />
             <Route path="anomalies" element={<RequireSupervisor><RiskCenterView /></RequireSupervisor>} />
-            <Route path="cctv" element={<RequireSupervisor><CctvEvidenceView /></RequireSupervisor>} />
+            <Route path="cctv" element={<CctvEvidenceView />} />
             <Route path="compliance-report" element={<RequireSupervisor><ReportCenterView /></RequireSupervisor>} />
             <Route path="errors" element={<ErrorsView />} />
             <Route path="settings" element={<SettingsView />} />

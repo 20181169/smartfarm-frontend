@@ -84,6 +84,23 @@ export function apiGetMe() {
   return request('/auth/me') // { user_id, email, name, role_id, status, ... }
 }
 
+export function apiVisionCameras(plantId, signal) {
+  return request(`/vision/cameras?plant_id=${encodeURIComponent(plantId)}`, { signal })
+}
+
+export async function apiDetectTractor({ plantId, cameraId, blob, threshold, signal }) {
+  const query = new URLSearchParams({ plant_id: plantId, threshold: String(threshold) })
+  const path = cameraId ? `/vision/cameras/${encodeURIComponent(cameraId)}/detect` : '/vision/detect'
+  const body = blob ? new FormData() : undefined
+  if (body) body.append('file', blob, 'frame.jpg')
+  const response = await fetch(`${BASE}${path}?${query}`, {
+    method: 'POST', headers: { Authorization: `Bearer ${getToken() || ''}` }, body, signal,
+  })
+  const json = await response.json().catch(() => null)
+  if (!response.ok) throw new ApiError(json?.message || json?.detail || `분석 실패 (${response.status})`, response.status)
+  return json?.data ?? json
+}
+
 /* ----------------------------------------------------------------- Roles */
 
 // 역할 목록(계층형). 공개 엔드포인트. role_id → { role_code, role_name, level } 해석용.

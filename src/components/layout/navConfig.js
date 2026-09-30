@@ -19,7 +19,7 @@ export const NAV_ITEMS = [
   { to: '/oversight', label: '영농이행 감독', icon: ShieldCheck, group: 'supervisor' },
   { to: '/site-detail', label: '사업장상세', icon: ClipboardList, group: 'supervisor' },
   { to: '/anomalies', label: '이상징후', icon: ShieldAlert, group: 'supervisor' },
-  { to: '/cctv', label: 'CCTV증빙', icon: Video, group: 'supervisor' },
+  { to: '/cctv', label: 'CCTV 트랙터 인식', icon: Video, group: 'both' },
   { to: '/compliance-report', label: '이행리포트', icon: FileCheck2, group: 'supervisor' },
   // 공통
   { to: '/settings', label: '설정', icon: Settings, group: 'both' },
