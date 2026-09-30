@@ -72,7 +72,9 @@ export default function DashboardView() {
       meterPct: eff * 3, gradient: 'linear-gradient(90deg,#10b981,#f59e0b,#ef4444)',
     },
     {
-      label: '금일 발전량', icon: Sun, tint: 'var(--blue)', bg: 'color-mix(in srgb, var(--blue) 14%, transparent)',
+      // 실연동인데 금일 발전량을 계산 못 한 경우(이력 없음)는 템플릿값이라 표시
+      label: isLive && !plant._todayGenLive ? '금일 발전량 (데모)' : '금일 발전량',
+      icon: Sun, tint: 'var(--blue)', bg: 'color-mix(in srgb, var(--blue) 14%, transparent)',
       value: nf(plant.todayGenKwh), unit: 'kWh', color: 'var(--blue)',
       meterLabel: `목표(${plant.targetGenKwh}kWh) 대비`, meterVal: `${ratio}%`,
       meterPct: +ratio, gradient: 'linear-gradient(90deg,#3b82f6,#10b981)',
@@ -120,14 +122,17 @@ export default function DashboardView() {
       <div className="weather-strip">
         <div className="weather-strip-top">
           <span style={{ fontWeight: 800 }}>{plant.name} 기상 관측</span>
-          <span className="badge badge-sync">
-            {weather?.source === 'sensor' ? '🛰️ 백엔드 센서 실시간' : '🟢 기상청 실시간 동기화'}
+          <span className={`badge ${weather?.source === 'sensor' && weather.stale ? 'badge-warning' : 'badge-sync'}`}>
+            {weather?.source === 'sensor'
+              ? weather.stale ? '🛰️ 백엔드 센서 · 수신 지연' : '🛰️ 백엔드 센서 실시간'
+              : '🟢 기상청 실시간 동기화'}
             {weather ? ` (${weather.syncedAt})` : ''}
           </span>
         </div>
         <div className="weather-metrics">
           <span>날씨 <b>{weather?.cond ?? '☀️ 맑음'}</b></span>
           <span>기온 <b>{weather?.temp ?? plant.cardTemp}</b></span>
+          {weather?.surfaceTemp && <span>모듈온도 <b>{weather.surfaceTemp}</b></span>}
           <span>습도 <b>{weather?.humidity ?? '62%'}</b></span>
           <span>풍속 <b>{weather?.wind ?? '1.2m/s'}</b></span>
           <span>일출 <b>{weather?.sunrise ?? '05:28'}</b></span>
@@ -193,7 +198,15 @@ export default function DashboardView() {
             <span className="badge badge-active">정상</span>
           </div>
           <div className="info-list">
-            <div className="info-row"><span>인버터 변환효율</span><b className="text-terra" style={{ fontSize: 20 }}>99.9 <small style={{ fontSize: 12 }}>%</small></b></div>
+            <div className="info-row">
+              <span>인버터 변환효율{plant._live ? ' (AC/DC)' : ''}</span>
+              <b className="text-terra" style={{ fontSize: 20 }}>
+                {plant._live
+                  ? plant.conversionEff != null ? plant.conversionEff.toFixed(1) : '-'
+                  : '99.9'}
+                {' '}<small style={{ fontSize: 12 }}>%</small>
+              </b>
+            </div>
             <div className="info-row"><span>DC 입력전력</span><b className="text-sage">{plant.dcPower}</b></div>
             <div className="info-row"><span>AC 출력전력</span><b>{plant.acPower}</b></div>
             <div className="info-row"><span>계통 주파수</span><b>{plant.acFreq}</b></div>
@@ -213,10 +226,14 @@ export default function DashboardView() {
                 {plant.inverters.map((inv) => (
                   <tr key={inv.id}>
                     <td>#{inv.id}</td>
-                    <td><strong>{inv.powerKw}</strong></td>
-                    <td>{inv.runHours}</td>
-                    <td><strong>{inv.todayGenKwh}</strong></td>
-                    <td><span className="badge badge-active">가동</span></td>
+                    <td><strong>{inv.powerKw ?? '-'}</strong></td>
+                    <td>{inv.runHours ?? '-'}</td>
+                    <td><strong>{inv.todayGenKwh ?? '-'}</strong></td>
+                    <td>
+                      <span className={`badge ${inv.state === '지연' ? 'badge-warning' : 'badge-active'}`}>
+                        {inv.state || '가동'}
+                      </span>
+                    </td>
                     <td className="text-muted" style={{ fontSize: 11 }}>{inv.comm}</td>
                   </tr>
                 ))}

@@ -161,27 +161,40 @@ export function AppProvider({ children }) {
     }
   }, [plantId])
 
-  // 실시간 계측을 발전소 객체에 병합 → 뷰는 그대로 실데이터 표시.
-  // 백엔드가 실제 주는 값(현재출력·인버터 계측)은 0이어도 그대로 노출하고(실측),
-  // 미제공 값(일발전량·시세·이력)은 목 템플릿으로 폴백한다.
+  // 실시간 계측(MRT 정규화 텔레메트리)을 발전소 객체에 병합 → 뷰는 그대로 실데이터 표시.
+  // 백엔드가 주는 값은 0이어도 그대로 노출하고(실측), 미제공 값(PEAK·인버터 온도·시세·이력)은
+  // 인버터는 null('-' 표시), 발전소 단위는 목 템플릿으로 폴백한다.
   const plant = useMemo(() => {
     if (!live || !live.hasData) return basePlant
-    const cur = live.currentPowerKw != null ? live.currentPowerKw : basePlant.currentPowerKw
-    const gen = live.todayGenKwh != null ? live.todayGenKwh : basePlant.todayGenKwh
+    const round = (v, d = 1) => (v == null ? null : Math.round(v * 10 ** d) / 10 ** d)
+    const withUnit = (v, unit, d = 1) => (v == null ? '-' : `${v.toFixed(d)} ${unit}`)
+    const joinPhases = (vals) =>
+      vals.every((x) => x == null) ? '-' : vals.map((x) => (x == null ? '-' : x.toFixed(1))).join(', ')
+
+    const cur = live.currentPowerKw != null ? round(live.currentPowerKw, 2) : basePlant.currentPowerKw
+    const genLive = live.todayGenKwh != null
+    const gen = genLive ? round(live.todayGenKwh) : basePlant.todayGenKwh
     const env = live.environment
     const inv = live.inverters.length
       ? live.inverters.map((iv) => ({
           id: iv.id,
-          powerKw: iv.powerKw,
-          runHours: 1.9,
-          todayGenKwh: iv.dailyKwh,
+          deviceId: iv.deviceId,
+          externalSeq: iv.externalSeq,
+          powerKw: round(iv.powerKw, 2), // AC 출력(grid_power_kw)
+          dcPowerKw: round(iv.dcPowerKw, 2), // DC 전력(pv_power_kw)
+          dcV: round(iv.dcVoltV), // pv_total_voltage_v
+          dcA: round(iv.dcCurrentA), // pv_total_current_a
+          acV: joinPhases(iv.acVoltV), // R-S, S-T, T-R 선간전압
+          acA: joinPhases(iv.acCurrentA), // R, S, T 상전류
+          freqHz: round(iv.freqHz),
+          energyKwh: round(iv.energyKwh), // 보정 누적(corrected_energy_wh)
+          todayGenKwh: round(iv.todayKwh),
+          peakKw: null, // 백엔드 미제공
+          temp: null, // 인버터 온도 미제공
+          runHours: null, // 미제공
           state: iv.stale ? '지연' : '가동',
           comm: iv.comm,
-          dcV: iv.voltage,
-          dcA: iv.current,
-          acV: `${iv.voltage}, ${iv.voltage}, ${iv.voltage}`,
-          acA: `${iv.current}, ${iv.current}, ${iv.current}`,
-          temp: 40 + (iv.id % 6),
+          _live: true,
         }))
       : basePlant.inverters
     return {
@@ -190,36 +203,45 @@ export function AppProvider({ children }) {
       todayGenKwh: gen,
       todayRevenueMan: +(gen * 0.017).toFixed(1),
       co2ReducedTon: +((gen * 0.48) / 1000).toFixed(2),
-      acPower: `${cur.toFixed(1)} kW`,
-      dcPower: `${(cur * 1.05).toFixed(1)} kW`,
-      acVolt: live.acVolt != null ? `${live.acVolt} V` : basePlant.acVolt,
-      acFreq: `${live.acFreq} Hz`,
-      dcVolt: live.acVolt != null ? `${(live.acVolt * 1.63).toFixed(1)} V` : basePlant.dcVolt,
+      acPower: withUnit(live.currentPowerKw, 'kW'),
+      dcPower: withUnit(live.dcPowerKw, 'kW'),
+      dcVolt: withUnit(live.dcVoltV, 'V'),
+      dcCurr: withUnit(live.dcCurrentA, 'A'),
+      acVolt: withUnit(live.acVoltV, 'V'),
+      acFreq: withUnit(live.acFreqHz, 'Hz'),
+      conversionEff: live.conversionEff, // AC/DC(%) — 계산 불가면 null
+      totalEnergyKwh: live.totalEnergyKwh,
       inverters: inv,
       soilMoisture: env && env.soilMoisture != null ? `${env.soilMoisture} %` : basePlant.soilMoisture,
       soilTemp: env && env.soilTemp != null ? `${env.soilTemp} °C` : basePlant.soilTemp,
-      cardTemp: env ? `${env.airTemp}°C` : basePlant.cardTemp,
+      cardTemp: env?.airTemp != null ? `${env.airTemp.toFixed(1)}°C` : basePlant.cardTemp,
       _live: true,
       _stale: live.stale,
-      _dataStatus: live.dataStatus,
       _lastUpdatedAt: live.lastUpdatedAt,
+      _todayGenLive: genLive, // false 면 금일 발전량은 템플릿(데모)값
+      _todayGenPartial: !!live.todayGenPartial,
     }
   }, [basePlant, live])
 
-  // 날씨: 백엔드 환경센서가 있으면 우선, 없으면 Open-Meteo
+  // 날씨: 백엔드 환경센서가 있으면 우선, 없으면 Open-Meteo.
+  // 기온=외기온도 센서, 경사/수평 일사량=센서 종류(sun_type)별 실측값.
   const weather = useMemo(() => {
     const env = live?.environment
     if (env) {
+      const fmt = (v, unit, d = 1) => (v == null ? '-' : `${v.toFixed(d)}${unit}`)
+      const irr = env.irradiance
       return {
-        cond: env.irradiance > 300 ? '☀️ 맑음' : '☁️ 흐림',
-        temp: `${env.airTemp}°C`,
-        humidity: `${env.humidity}%`,
-        wind: `${env.wind}m/s`,
-        inclinedIrr: `${Math.round(env.irradiance * 1.05)} W/m²`,
-        horizontalIrr: `${Math.round(env.irradiance)} W/m²`,
+        cond: irr == null ? '-' : irr < 10 ? '🌙 일사 없음' : irr > 300 ? '☀️ 맑음' : '☁️ 흐림',
+        temp: fmt(env.airTemp, '°C'),
+        surfaceTemp: env.surfaceTemp != null ? fmt(env.surfaceTemp, '°C') : null,
+        humidity: fmt(env.humidity, '%', 0),
+        wind: fmt(env.wind, 'm/s'),
+        inclinedIrr: env.inclinedIrr == null ? '-' : `${Math.round(env.inclinedIrr)} W/m²`,
+        horizontalIrr: env.horizontalIrr == null ? '-' : `${Math.round(env.horizontalIrr)} W/m²`,
         sunrise: meteo?.sunrise ?? '05:28',
         sunset: meteo?.sunset ?? '19:42',
-        syncedAt: live.updatedAt,
+        syncedAt: env.ts,
+        stale: env.stale,
         source: 'sensor',
       }
     }

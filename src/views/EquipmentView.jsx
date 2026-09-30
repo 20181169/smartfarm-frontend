@@ -94,21 +94,34 @@ function DeviceInventory({ plantId }) {
   )
 }
 
+const f1 = (v) => (v == null ? '-' : Number(v).toFixed(1))
+const sum = (vals) => {
+  const xs = vals.filter((v) => v != null)
+  return xs.length ? xs.reduce((s, v) => s + v, 0) : null
+}
+// 실연동 인버터(_live)는 백엔드 정규화 값만 쓰고(없으면 '-'), 데모 인버터는 기존 표시식을 유지한다.
+const dcPowerOf = (inv) => (inv._live ? inv.dcPowerKw : inv.powerKw * 1.05)
+const peakOf = (inv) => (inv._live ? inv.peakKw : inv.powerKw * 1.25)
+const freqOf = (inv) => (inv._live ? inv.freqHz : 60)
+
 export default function EquipmentView() {
   const { plant } = useApp()
   const [tab, setTab] = useState('inverter')
   const [logModal, setLogModal] = useState(null) // 'inverter' | 'mppt' | null
 
   const invs = plant.inverters
-  const totalDcP = invs.reduce((s, i) => s + i.powerKw * 1.05, 0)
-  const totalAcP = invs.reduce((s, i) => s + i.powerKw, 0)
-  const totalGen = invs.reduce((s, i) => s + i.todayGenKwh, 0)
+  const isLive = !!plant._live
+  const totalDcP = sum(invs.map(dcPowerOf))
+  const totalAcP = sum(invs.map((i) => i.powerKw))
+  const totalGen = sum(invs.map((i) => i.todayGenKwh))
 
   return (
     <div className="view stack">
       <div>
         <div className="view-title">{plant._backend ? plant.name : `[${plant.id}] ${plant.shortName}`} 설비 현황</div>
-        <div className="view-sub">인버터 및 MPPT 스트링 실시간 계측</div>
+        <div className="view-sub">
+          {isLive ? '인버터 실시간 계측 (MRT 정규화 텔레메트리)' : '인버터 및 MPPT 스트링 실시간 계측'}
+        </div>
       </div>
 
       {plant._backend && <DeviceInventory plantId={plant.id} />}
@@ -119,7 +132,12 @@ export default function EquipmentView() {
             <button className={tab === 'inverter' ? 'active' : ''} onClick={() => setTab('inverter')}>인버터 실시간 현황</button>
             <button className={tab === 'mppt' ? 'active' : ''} onClick={() => setTab('mppt')}>MPPT (스트링) 현황</button>
           </div>
-          <button className="btn-terracotta" onClick={() => setLogModal(tab === 'mppt' ? 'mppt' : 'inverter')}>
+          <button
+            className="btn-terracotta"
+            disabled={isLive && tab === 'mppt'}
+            title={isLive && tab === 'mppt' ? 'MPPT 데이터는 수집하지 않습니다' : undefined}
+            onClick={() => setLogModal(tab === 'mppt' ? 'mppt' : 'inverter')}
+          >
             <ScrollText /> 이력 로그 조회
           </button>
         </div>
@@ -140,23 +158,33 @@ export default function EquipmentView() {
               </thead>
               <tbody>
                 <tr className="row-summary">
-                  <td>합계 ({invs.length}대)</td><td>-</td><td>-</td><td>-</td><td>{totalDcP.toFixed(1)}</td>
-                  <td>-</td><td>-</td><td><strong>{totalAcP.toFixed(1)} kW</strong></td><td>-</td><td>-</td><td>-</td>
-                  <td><strong>{totalGen.toLocaleString()} kWh</strong></td><td>-</td>
+                  <td>합계 ({invs.length}대)</td><td>-</td><td>-</td><td>-</td><td>{f1(totalDcP)}</td>
+                  <td>-</td><td>-</td><td><strong>{totalAcP == null ? '-' : `${f1(totalAcP)} kW`}</strong></td><td>-</td><td>-</td><td>-</td>
+                  <td><strong>{totalGen == null ? '-' : `${totalGen.toLocaleString()} kWh`}</strong></td><td>-</td>
                 </tr>
                 {invs.map((inv) => (
                   <tr key={inv.id}>
-                    <td>#{inv.id} 호기</td>
-                    <td><span className="badge badge-active">가동</span></td>
-                    <td>{inv.dcV}</td><td>{inv.dcA}</td><td>{(inv.powerKw * 1.05).toFixed(1)}</td>
-                    <td>{inv.acV}</td><td>{inv.acA}</td><td><strong>{inv.powerKw.toFixed(1)}</strong></td>
-                    <td>{(inv.powerKw * 1.25).toFixed(1)}</td><td>60.0</td><td>{inv.temp}</td>
-                    <td><strong>{inv.todayGenKwh}</strong></td>
+                    <td>
+                      #{inv.id} 호기
+                      {inv.externalSeq != null && <span className="text-muted" style={{ fontSize: 10.5, marginLeft: 4 }}>seq {inv.externalSeq}</span>}
+                    </td>
+                    <td>
+                      <span className={`badge ${inv.state === '지연' ? 'badge-warning' : 'badge-active'}`}>{inv.state || '가동'}</span>
+                    </td>
+                    <td>{inv.dcV ?? '-'}</td><td>{inv.dcA ?? '-'}</td><td>{f1(dcPowerOf(inv))}</td>
+                    <td>{inv.acV}</td><td>{inv.acA}</td><td><strong>{f1(inv.powerKw)}</strong></td>
+                    <td>{f1(peakOf(inv))}</td><td>{f1(freqOf(inv))}</td><td>{inv.temp ?? '-'}</td>
+                    <td><strong>{inv.todayGenKwh ?? '-'}</strong></td>
                     <td className="text-muted" style={{ fontSize: 11.5 }}>{inv.comm}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
+          </div>
+        ) : isLive ? (
+          <div className="text-muted" style={{ fontSize: 13, padding: '10px 2px', lineHeight: 1.6 }}>
+            MPPT(스트링) 채널 데이터는 MRT 연동 범위에서 수집하지 않습니다.
+            <br />(업체 원본 PvChVolt·PvCurrent·Mppt_Volt·Mppt_Current 는 미수집 항목)
           </div>
         ) : (
           <div className="table-wrap">
@@ -181,7 +209,14 @@ export default function EquipmentView() {
         )}
       </div>
 
-      {logModal === 'inverter' && <InverterLogModal count={invs.length} onClose={() => setLogModal(null)} />}
+      {logModal === 'inverter' && (
+        <InverterLogModal
+          count={invs.length}
+          plantId={plant.id}
+          inverters={isLive ? invs : []}
+          onClose={() => setLogModal(null)}
+        />
+      )}
       {logModal === 'mppt' && <MpptLogModal count={invs.length} onClose={() => setLogModal(null)} />}
     </div>
   )

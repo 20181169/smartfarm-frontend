@@ -134,13 +134,14 @@ export default function ComparisonView() {
     }
     setState('loading')
     try {
-      const data = await apiPlantsWithOverview()
+      // 현재출력은 정규화 텔레메트리(grid_power_kw 합)에서, 수신상태는 overview 에서.
+      const data = await apiPlantsWithOverview({ withLive: true })
       setRows(
         data.map(({ plant, overview, live }) => ({
           id: plant.plant_id,
           name: plant.name,
           cap: plant.capacity_kw != null ? `${plant.capacity_kw} kW` : '-',
-          power: live ? `${live.currentPowerKw} kW` : '-',
+          power: live?.currentPowerKw != null ? `${live.currentPowerKw.toFixed(1)} kW` : '-',
           inv: overview?.devices?.inverters ?? 0,
           ds: overview?.data_status?.status || (overview ? '-' : '조회실패'),
           updated: fmtTime(overview?.data_status?.last_updated_at),
