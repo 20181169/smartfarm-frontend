@@ -162,6 +162,15 @@ function hhmmss(iso) {
   return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`
 }
 
+// 측정시각 표시: 오늘이면 시:분:초, 지난 날짜면 '월/일 시:분' (하루 지난 지연 데이터를 오늘로 오인하지 않게)
+function whenLabel(iso) {
+  const d = new Date(iso)
+  if (!iso || Number.isNaN(d.getTime())) return '-'
+  if (d.toDateString() === new Date().toDateString()) return hhmmss(iso)
+  const p = (x) => String(x).padStart(2, '0')
+  return `${d.getMonth() + 1}/${d.getDate()} ${p(d.getHours())}:${p(d.getMinutes())}`
+}
+
 const toNum = (v) => {
   if (v == null || v === '') return null
   const n = Number(v)
@@ -193,6 +202,12 @@ function pickField(d, normKey, rawKey, divisor = 1) {
 // 인버터 1건(latest 또는 history 행) → 화면용 값.
 export function mapInverterTelemetry(d, i = 0) {
   const energyWh = pickField(d, 'corrected_energy_wh', 'process_add_power')
+  const acVoltV = [
+    pickField(d, 'grid_rs_voltage_v', 'grid_rs_volt', 10),
+    pickField(d, 'grid_st_voltage_v', 'grid_st_volt', 10),
+    pickField(d, 'grid_tr_voltage_v', 'grid_tr_volt', 10),
+  ]
+  const freqHz = pickField(d, 'grid_frequency_hz', 'grid_frq', 10)
   return {
     id: i + 1,
     deviceId: d.device_id ?? null,
@@ -201,22 +216,21 @@ export function mapInverterTelemetry(d, i = 0) {
     dcPowerKw: pickField(d, 'pv_power_kw', 'pv_power', 1000),
     dcVoltV: pickField(d, 'pv_total_voltage_v', 'pv_total_volt', 10),
     dcCurrentA: pickField(d, 'pv_total_current_a', 'pv_total_current', 10),
-    acVoltV: [
-      pickField(d, 'grid_rs_voltage_v', 'grid_rs_volt', 10),
-      pickField(d, 'grid_st_voltage_v', 'grid_st_volt', 10),
-      pickField(d, 'grid_tr_voltage_v', 'grid_tr_volt', 10),
-    ],
+    acVoltV,
     acCurrentA: [
       pickField(d, 'grid_r_current_a', 'grid_r_current', 10),
       pickField(d, 'grid_s_current_a', 'grid_s_current', 10),
       pickField(d, 'grid_t_current_a', 'grid_t_current', 10),
     ],
-    freqHz: pickField(d, 'grid_frequency_hz', 'grid_frq', 10),
+    freqHz,
     powerFactor: toNum(d.grid_factor_value), // % 인지 0~1 계수인지 미확정 → 정규화값만, 라벨 주의
     energyKwh: energyWh == null ? null : energyWh / 1000, // 보정 누적 발전량
     measuredAt: d.measured_at ?? null,
-    comm: hhmmss(d.measured_at),
+    comm: whenLabel(d.measured_at),
     stale: !!d.is_stale,
+    // 계통 주파수·선간전압이 모두 0 = 인버터가 계통 계측값을 못 보내는 상태(야간 정지 또는 통신 무응답).
+    // 행은 1분마다 들어와도(is_stale=false) 값이 전부 0 일 수 있어 '가동'과 구분한다.
+    noMeasurement: !freqHz && acVoltV.every((v) => !v),
   }
 }
 
@@ -258,12 +272,14 @@ function mapEnvironment(items) {
   const inclinedIrr = pick('irradiance_wm2', (d) => irrKind(d) === 'inclined')
   const horizontalIrr = pick('irradiance_wm2', (d) => irrKind(d) === 'horizontal')
   const anyIrr = pick('irradiance_wm2', any)
-  const humidity = pick('humidity_pct', isWeatherStation, any)
-  const wind = pick('wind_speed_ms', isWeatherStation, any) // 업체 답변 대기(값 스케일 변경 가능)
-  const windDir = pick('wind_direction_deg', isWeatherStation, any)
-  const rain60m = pick('rainfall_60m_mm', isWeatherStation, any) // 최근 60분 누적(mm/h 아님)
-  const lux = pick('light_lux', isWeatherStation, any)
-  const uvRaw = pick('uv_index_raw', isWeatherStation, any) // UVI 원시값 — 일반 UV Index 로 해석 금지
+  // 습도·풍속 등 기상값은 기상센서에서만 가져온다. 온도/일사 전용(엠알티-Modbus) 센서는 이 칸을
+  // 0 으로 채워 보내므로(실측 확인: 113·114 humidity=0) 쓰면 '습도 0%'로 잘못 표시된다.
+  const humidity = pick('humidity_pct', isWeatherStation)
+  const wind = pick('wind_speed_ms', isWeatherStation) // 업체 답변 대기(값 스케일 변경 가능)
+  const windDir = pick('wind_direction_deg', isWeatherStation)
+  const rain60m = pick('rainfall_60m_mm', isWeatherStation) // 최근 60분 누적(mm/h 아님)
+  const lux = pick('light_lux', isWeatherStation)
+  const uvRaw = pick('uv_index_raw', isWeatherStation) // UVI 원시값 — 일반 UV Index 로 해석 금지
 
   const used = [airTemp, surfaceTemp, inclinedIrr, horizontalIrr, anyIrr, humidity, wind].filter(Boolean)
   if (!used.length) return null
@@ -286,7 +302,7 @@ function mapEnvironment(items) {
     soilMoisture: null,
     stale: used.every((x) => x.stale),
     measuredAt,
-    ts: hhmmss(measuredAt),
+    ts: whenLabel(measuredAt),
   }
 }
 
@@ -317,6 +333,7 @@ export function mapLatestToLive(invItems = [], envItems = []) {
     hasData: currentPowerKw != null || !!environment,
     stale: inverters.length ? staleCount === inverters.length : !!environment?.stale,
     staleCount,
+    noMeasurementCount: inverters.filter((iv) => !iv.stale && iv.noMeasurement).length,
     lastUpdatedAt: latestTime([...invItems, ...envItems].map((d) => d.measured_at)),
     updatedAt: hhmmss(new Date().toISOString()),
   }

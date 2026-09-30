@@ -192,7 +192,8 @@ export function AppProvider({ children }) {
           peakKw: null, // 백엔드 미제공
           temp: null, // 인버터 온도 미제공
           runHours: null, // 미제공
-          state: iv.stale ? '지연' : '가동',
+          // 지연=수신 끊김, 정지=수신은 되나 계측값이 모두 0(야간 정지 또는 인버터 통신 무응답)
+          state: iv.stale ? '지연' : iv.noMeasurement ? '정지' : '가동',
           comm: iv.comm,
           _live: true,
         }))
@@ -218,6 +219,8 @@ export function AppProvider({ children }) {
       _live: true,
       _stale: live.stale,
       _lastUpdatedAt: live.lastUpdatedAt,
+      _invNoData: live.noMeasurementCount || 0, // 계측값 없는(정지) 인버터 수
+      _invTotal: live.inverters.length,
       _todayGenLive: genLive, // false 면 금일 발전량은 템플릿(데모)값
       _todayGenPartial: !!live.todayGenPartial,
     }

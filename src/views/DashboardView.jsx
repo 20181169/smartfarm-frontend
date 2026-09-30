@@ -113,7 +113,9 @@ export default function DashboardView() {
           {isLive
             ? plant._stale
               ? `백엔드 연동됨 · 계측 데이터 수신 지연 (마지막 수신: ${plant._lastUpdatedAt ? new Date(plant._lastUpdatedAt).toLocaleString('ko-KR') : '확인 불가'}) · 시세/이력은 데모`
-              : '인버터·환경센서 실시간 텔레메트리 (백엔드 연동) · 시세/이력은 데모'
+              : `인버터·환경센서 실시간 텔레메트리 (백엔드 연동)${
+                  plant._invNoData ? ` · 인버터 ${plant._invNoData}/${plant._invTotal}대 계측값 없음(정지 또는 통신 무응답)` : ''
+                } · 시세/이력은 데모`
             : '실시간 발전 · 수익 · AI 진단 통합 모니터링'}
         </div>
       </div>
@@ -230,7 +232,7 @@ export default function DashboardView() {
                     <td>{inv.runHours ?? '-'}</td>
                     <td><strong>{inv.todayGenKwh ?? '-'}</strong></td>
                     <td>
-                      <span className={`badge ${inv.state === '지연' ? 'badge-warning' : 'badge-active'}`}>
+                      <span className={`badge ${inv.state === '지연' ? 'badge-warning' : inv.state === '정지' ? 'badge-neutral' : 'badge-active'}`}>
                         {inv.state || '가동'}
                       </span>
                     </td>

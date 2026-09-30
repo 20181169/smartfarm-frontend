@@ -169,7 +169,15 @@ export default function EquipmentView() {
                       {inv.externalSeq != null && <span className="text-muted" style={{ fontSize: 10.5, marginLeft: 4 }}>seq {inv.externalSeq}</span>}
                     </td>
                     <td>
-                      <span className={`badge ${inv.state === '지연' ? 'badge-warning' : 'badge-active'}`}>{inv.state || '가동'}</span>
+                      <span
+                        className={`badge ${inv.state === '지연' ? 'badge-warning' : inv.state === '정지' ? 'badge-neutral' : 'badge-active'}`}
+                        title={
+                          inv.state === '정지' ? '수신은 되지만 계측값이 모두 0 — 야간 정지 또는 인버터 통신 무응답'
+                            : inv.state === '지연' ? '데이터 수신 지연(stale)' : undefined
+                        }
+                      >
+                        {inv.state || '가동'}
+                      </span>
                     </td>
                     <td>{inv.dcV ?? '-'}</td><td>{inv.dcA ?? '-'}</td><td>{f1(dcPowerOf(inv))}</td>
                     <td>{inv.acV}</td><td>{inv.acA}</td><td><strong>{f1(inv.powerKw)}</strong></td>
