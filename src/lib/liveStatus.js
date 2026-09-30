@@ -1,6 +1,15 @@
 // 실연동 발전소의 현재 상태 요약(규칙 기반) — 대시보드 상태 배너·계측 상태 배지용.
 // 데모 템플릿의 'AI 진단' 문구(가상의 인버터-2 등)를 실발전소에 보여주지 않도록 실측값으로만 판단한다.
 
+// 인버터 상태(AppContext) → 배지 색
+export const INV_STATE_BADGE = {
+  가동: 'badge-active',
+  대기: 'badge-neutral',
+  정지: 'badge-neutral',
+  지연: 'badge-warning',
+  '통신 두절': 'badge-warning',
+}
+
 const toMin = (hhmm) => {
   const m = /^(\d{1,2}):(\d{2})/.exec(hhmm || '')
   return m ? +m[1] * 60 + +m[2] : null
@@ -19,15 +28,27 @@ export function dayPhase(sunrise, sunset, now = new Date()) {
 }
 
 const invLabel = (iv) => `#${iv.id}${iv.externalSeq != null ? `(seq ${iv.externalSeq})` : ''}`
+const pad = (x) => String(x).padStart(2, '0')
+const timeLabel = (d, now) =>
+  d.toDateString() === now.toDateString()
+    ? `${pad(d.getHours())}:${pad(d.getMinutes())}`
+    : `${d.getMonth() + 1}/${d.getDate()} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+const durationLabel = (ms) => {
+  const m = Math.max(0, Math.round(ms / 60000))
+  return m >= 60 ? `${Math.floor(m / 60)}시간 ${m % 60}분` : `${m}분`
+}
 
 // plant: AppContext 가 실시간 계측을 병합한 발전소(_live) / weather: AppContext 날씨(source 'sensor'|'meteo')
 // → { level: 'ok'|'warn', badge, subject, desc }
 export function liveStatus(plant, weather, now = new Date()) {
   const invs = plant.inverters || []
   const delayed = invs.filter((iv) => iv.state === '지연')
+  const lost = invs.filter((iv) => iv.state === '통신 두절')
   const stopped = invs.filter((iv) => iv.state === '정지')
+  const standby = invs.filter((iv) => iv.state === '대기')
   const envStale = weather?.source === 'sensor' && !!weather.stale
   const envNote = envStale ? ` 환경센서도 ${weather.syncedAt} 이후 새 데이터가 없습니다.` : ''
+  const phase = dayPhase(weather?.sunrise, weather?.sunset, now)
 
   if (!invs.length) {
     return {
@@ -48,8 +69,32 @@ export function liveStatus(plant, weather, now = new Date()) {
     }
   }
 
+  // 통신 두절: RTU 요청에 인버터가 응답하지 않음. 값 0 은 측정값이 아니라 '값 없음'.
+  if (lost.length) {
+    const firstAt = lost
+      .map((iv) => iv.lastRecvAt)
+      .filter(Boolean)
+      .map((t) => new Date(t))
+      .sort((a, b) => a - b)[0]
+    const since = firstAt ? `${timeLabel(firstAt, now)} 이후` : '오늘 계속'
+    const startedPhase = firstAt ? dayPhase(weather?.sunrise, weather?.sunset, firstAt) : null
+    // 야간에 끊겨 아직 야간이면 경보하지 않는다(일부 인버터는 야간에 통신을 멈춤 — MRT 도 야간엔 두절 알람 해제).
+    // 주간에 끊긴 두절은 저녁·야간이 돼도 계속 경보한다. 시작 시각을 모르면(오늘 내내 무응답) 새벽에만 보류.
+    const nightNow = phase === 'night' || phase === 'twilight'
+    const nightOnly = firstAt ? nightNow && startedPhase !== 'day' : phase === 'night' && now.getHours() < 12
+    return {
+      level: nightOnly ? 'ok' : 'warn',
+      badge: nightOnly ? '야간 무응답' : '통신 두절',
+      subject: `인버터 ${lost.map(invLabel).join(', ')} 통신 두절 (${since} 응답 없음${firstAt ? ` · ${durationLabel(now - firstAt)}째` : ''})`,
+      desc:
+        'RTU는 계속 요청을 보내지만 인버터 응답이 없습니다. 화면의 0 kW는 측정값이 아니라 값이 없는 상태라, ' +
+        '발전이 멈춘 것인지 통신만 끊긴 것인지는 데이터로 구분되지 않습니다. ' +
+        '현장에서 인버터 표시창·계량기로 발전 여부를 확인하고 RS-485 통신선·통신 전원을 점검하세요.' +
+        envNote,
+    }
+  }
+
   if (stopped.length) {
-    const phase = dayPhase(weather?.sunrise, weather?.sunset, now)
     if (phase === 'night' || phase === 'twilight') {
       return {
         level: envStale ? 'warn' : 'ok',
@@ -78,6 +123,20 @@ export function liveStatus(plant, weather, now = new Date()) {
       badge: '점검 필요',
       subject: `인버터 ${delayed.map(invLabel).join(', ')} 수신 지연`,
       desc: `나머지 ${invs.length - delayed.length}대는 정상 수신 중입니다.${envNote}`,
+    }
+  }
+
+  // 응답은 정상인데 출력 0 — 야간·저일사면 대기, 주간이면 인버터 정지(트립) 의심
+  if (standby.length === invs.length) {
+    const daytime = phase === 'day'
+    return {
+      level: daytime || envStale ? 'warn' : 'ok',
+      badge: daytime ? '점검 필요' : envStale ? '점검 필요' : phase === 'night' ? '야간 대기' : '대기',
+      subject: daytime ? `주간인데 인버터 ${invs.length}대 출력 0` : `인버터 ${invs.length}대 대기 중 (통신 정상)`,
+      desc:
+        (daytime
+          ? '인버터 응답은 정상이지만 발전하지 않습니다. 인버터 정지·트립 여부와 오류 코드를 확인하세요.'
+          : '통신은 정상이며 일사가 없어 출력이 0 입니다.') + envNote,
     }
   }
 

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { ScrollText, Server, Wifi, RefreshCw } from 'lucide-react'
 import { useApp } from '../context/useApp'
 import { apiGetDevices, getToken } from '../lib/api'
+import { INV_STATE_BADGE } from '../lib/liveStatus'
 import InverterLogModal from '../components/modals/InverterLogModal'
 import MpptLogModal from '../components/modals/MpptLogModal'
 
@@ -102,6 +103,12 @@ function DeviceInventory({ plantId }) {
 }
 
 const f1 = (v) => (v == null ? '-' : Number(v).toFixed(1))
+const STATE_HINT = {
+  '통신 두절': 'RTU 요청에 인버터 응답 없음(receive_count 정지) — 표시값은 측정값이 아님. 최종통신시간 = 마지막 응답 시각',
+  대기: '통신 정상, 출력 0 (야간·저일사 대기)',
+  정지: '계측값이 모두 0 — 야간 정지 또는 통신 무응답(송수신 카운트가 없어 구분 불가)',
+  지연: '백엔드 데이터 수신 지연(stale)',
+}
 const sum = (vals) => {
   const xs = vals.filter((v) => v != null)
   return xs.length ? xs.reduce((s, v) => s + v, 0) : null
@@ -191,13 +198,7 @@ export default function EquipmentView() {
                       {inv.externalSeq != null && <span className="text-muted" style={{ fontSize: 10.5, marginLeft: 4 }}>seq {inv.externalSeq}</span>}
                     </td>
                     <td>
-                      <span
-                        className={`badge ${inv.state === '지연' ? 'badge-warning' : inv.state === '정지' ? 'badge-neutral' : 'badge-active'}`}
-                        title={
-                          inv.state === '정지' ? '수신은 되지만 계측값이 모두 0 — 야간 정지 또는 인버터 통신 무응답'
-                            : inv.state === '지연' ? '데이터 수신 지연(stale)' : undefined
-                        }
-                      >
+                      <span className={`badge ${INV_STATE_BADGE[inv.state] || 'badge-active'}`} title={STATE_HINT[inv.state]}>
                         {inv.state || '가동'}
                       </span>
                     </td>

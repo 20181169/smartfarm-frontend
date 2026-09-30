@@ -6,7 +6,7 @@ import {
 } from 'lucide-react'
 import { useApp } from '../context/useApp'
 import { efficiency, genRatio, co2Kg, assetRevenue, nf, smpWon, recWon } from '../lib/format'
-import { liveStatus } from '../lib/liveStatus'
+import { liveStatus, INV_STATE_BADGE } from '../lib/liveStatus'
 import { YEARLY_RECORDS, REC_MARKET, SMP_MARKET, RPS_PRICE } from '../data/market'
 import {
   HourlyGenChart, MonthlyTrendChart, YearlyGenChart, RecMarketChart, SmpMarketChart,
@@ -187,7 +187,8 @@ export default function DashboardView() {
   const kpis = [
     {
       label: '실시간 현재 출력', icon: Zap, tint: 'var(--sage)', bg: 'var(--sage-soft)',
-      value: plant.currentPowerKw == null ? '-' : plant.currentPowerKw.toFixed(1), unit: 'kW', color: 'var(--sage-strong)',
+      value: plant.currentPowerKw == null ? '-' : plant.currentPowerKw.toFixed(1),
+      unit: plant.currentPowerKw == null ? '' : 'kW', color: 'var(--sage-strong)',
       meterLabel: '발전 효율', meterVal: eff == null ? '-' : `${eff}%`,
       meterPct: eff == null ? 0 : eff * 3, gradient: 'linear-gradient(90deg,#10b981,#f59e0b,#ef4444)',
     },
@@ -240,7 +241,9 @@ export default function DashboardView() {
             ? plant._stale
               ? `백엔드 연동됨 · 계측 데이터 수신 지연 (마지막 수신: ${plant._lastUpdatedAt ? new Date(plant._lastUpdatedAt).toLocaleString('ko-KR') : '확인 불가'}) · 시세/이력/작물은 데모`
               : `인버터·환경센서 실시간 텔레메트리 (백엔드 연동)${
-                  plant._invNoData ? ` · 인버터 ${plant._invNoData}/${plant._invTotal}대 계측값 없음(정지 또는 통신 무응답)` : ''
+                  plant._invNoResponse
+                    ? ` · 인버터 ${plant._invNoResponse}/${plant._invTotal}대 통신 두절`
+                    : plant._invNoData ? ` · 인버터 ${plant._invNoData}/${plant._invTotal}대 계측값 없음(정지 또는 통신 무응답)` : ''
                 } · 시세/이력/작물은 데모`
             : '실시간 발전 · 수익 · AI 진단 통합 모니터링'}
         </div>
@@ -355,7 +358,7 @@ export default function DashboardView() {
                     <td>{inv.runHours ?? '-'}</td>
                     <td><strong>{inv.todayGenKwh ?? '-'}</strong></td>
                     <td>
-                      <span className={`badge ${inv.state === '지연' ? 'badge-warning' : inv.state === '정지' ? 'badge-neutral' : 'badge-active'}`}>
+                      <span className={`badge ${INV_STATE_BADGE[inv.state] || 'badge-active'}`}>
                         {inv.state || '가동'}
                       </span>
                     </td>

@@ -197,28 +197,38 @@ export function AppProvider({ children }) {
     const genLive = live.todayGenKwh != null
     const gen = genLive ? round(live.todayGenKwh) : basePlant.todayGenKwh
     const env = live.environment
-    // 인버터 데이터가 없으면 빈 목록(템플릿의 가상 인버터를 실발전소에 보여주지 않음)
-    const inv = live.inverters.map((iv) => ({
-      id: iv.id,
-      deviceId: iv.deviceId,
-      externalSeq: iv.externalSeq,
-      powerKw: round(iv.powerKw, 2), // AC 출력(grid_power_kw)
-      dcPowerKw: round(iv.dcPowerKw, 2), // DC 전력(pv_power_kw)
-      dcV: round(iv.dcVoltV), // pv_total_voltage_v
-      dcA: round(iv.dcCurrentA), // pv_total_current_a
-      acV: joinPhases(iv.acVoltV), // R-S, S-T, T-R 선간전압
-      acA: joinPhases(iv.acCurrentA), // R, S, T 상전류
-      freqHz: round(iv.freqHz),
-      energyKwh: round(iv.energyKwh), // 보정 누적(corrected_energy_wh)
-      todayGenKwh: round(iv.todayKwh),
-      peakKw: null, // 백엔드 미제공
-      temp: null, // 인버터 온도 미제공
-      runHours: null, // 미제공
-      // 지연=수신 끊김, 정지=수신은 되나 계측값이 모두 0(야간 정지 또는 인버터 통신 무응답)
-      state: iv.stale ? '지연' : iv.noMeasurement ? '정지' : '가동',
-      comm: iv.comm,
-      _live: true,
-    }))
+    // 인버터 데이터가 없으면 빈 목록(템플릿의 가상 인버터를 실발전소에 보여주지 않음).
+    // 통신 두절 인버터의 계측값은 측정값이 아니므로(RTU 가 채운 0·직전값) '-' 로 표시한다.
+    const inv = live.inverters.map((iv) => {
+      const nr = !!iv.noResponse
+      const val = (v, d) => (nr ? null : round(v, d))
+      return {
+        id: iv.id,
+        deviceId: iv.deviceId,
+        externalSeq: iv.externalSeq,
+        powerKw: val(iv.powerKw, 2), // AC 출력(grid_power_kw)
+        dcPowerKw: val(iv.dcPowerKw, 2), // DC 전력(pv_power_kw)
+        dcV: val(iv.dcVoltV), // pv_total_voltage_v
+        dcA: val(iv.dcCurrentA), // pv_total_current_a
+        acV: nr ? '-' : joinPhases(iv.acVoltV), // R-S, S-T, T-R 선간전압
+        acA: nr ? '-' : joinPhases(iv.acCurrentA), // R, S, T 상전류
+        freqHz: val(iv.freqHz),
+        energyKwh: round(iv.energyKwh), // 보정 누적(corrected_energy_wh)
+        todayGenKwh: round(iv.todayKwh),
+        peakKw: null, // 백엔드 미제공
+        temp: null, // 인버터 온도 미제공
+        runHours: null, // 미제공
+        // 지연=백엔드 수신 끊김(stale) / 통신 두절=RTU 요청에 인버터 무응답(receive_count 정지) /
+        // 정지=값이 전부 0(송수신 카운트가 없어 두절 여부 판단 불가) / 대기=응답 정상·출력 0 / 가동=출력 중
+        state: iv.stale ? '지연'
+          : nr ? '통신 두절'
+            : iv.noMeasurement ? '정지'
+              : (iv.powerKw ?? 0) > 0 ? '가동' : '대기',
+        lastRecvAt: iv.lastRecvAt, // 통신 두절 시작 판단용(마지막 응답 시각)
+        comm: iv.comm,
+        _live: true,
+      }
+    })
     return {
       ...basePlant,
       currentPowerKw: cur,
@@ -245,7 +255,8 @@ export function AppProvider({ children }) {
       _live: true,
       _stale: live.stale,
       _lastUpdatedAt: live.lastUpdatedAt,
-      _invNoData: live.noMeasurementCount || 0, // 계측값 없는(정지) 인버터 수
+      _invNoData: live.noMeasurementCount || 0, // 계측값 없는(통신 두절·정지) 인버터 수
+      _invNoResponse: live.noResponseCount || 0, // 그중 통신 두절(receive_count 정지)로 확인된 수
       _invTotal: live.inverters.length,
       _todayGenLive: genLive, // false 면 금일 발전량은 템플릿(데모)값
       _todayGenPartial: !!live.todayGenPartial,

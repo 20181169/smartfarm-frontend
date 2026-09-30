@@ -231,6 +231,7 @@ export function mapInverterTelemetry(d, i = 0) {
     freqHz,
     powerFactor: toNum(d.grid_factor_value), // % 인지 0~1 계수인지 미확정 → 정규화값만, 라벨 주의
     energyKwh: energyWh == null ? null : energyWh / 1000, // 보정 누적 발전량
+    receiveCount: toNum(d.receive_count), // RTU 요청에 인버터가 응답한 누적 횟수(통신 두절 판단용)
     measuredAt: d.measured_at ?? null,
     comm: whenLabel(d.measured_at),
     stale: !!d.is_stale,
@@ -313,16 +314,28 @@ function mapEnvironment(items) {
 }
 
 // latest 응답(items) → 대시보드 live 형태.
-export function mapLatestToLive(invItems = [], envItems = []) {
-  const inverters = invItems.map(mapInverterTelemetry)
-  const currentPowerKw = sumOf(inverters.map((iv) => iv.powerKw))
-  const dcPowerKw = sumOf(inverters.map((iv) => iv.dcPowerKw))
+// comm[i]: 인버터별 통신 상태 { noResponse, lastRecvAt } (apiPlantLive 가 receive_count 추적으로 계산, 없으면 판단 보류)
+export function mapLatestToLive(invItems = [], envItems = [], comm = []) {
+  const inverters = invItems.map((d, i) => {
+    const iv = mapInverterTelemetry(d, i)
+    const c = comm[i]
+    iv.noResponse = c ? c.noResponse : null // null = 판단 불가(송수신 카운트·이력 없음)
+    iv.lastRecvAt = c ? c.lastRecvAt : null
+    // 응답이 끊겨도 RTU 는 행을 계속 기록하므로 행 시각은 '최종 통신'이 아니다 → 마지막 응답 시각으로 표시
+    if (c?.noResponse) iv.comm = c.lastRecvAt ? `${whenLabel(c.lastRecvAt)} 이후 응답 없음` : '오늘 응답 없음'
+    return iv
+  })
+  // 통신 두절 인버터의 값은 측정값이 아니다(끊기기 직전 값을 몇 분 유지하다 0 으로 채워짐) → 출력 합계에서 제외.
+  // 전부 두절이면 현재 출력은 알 수 없음(null → '-').
+  const responding = inverters.filter((iv) => !iv.noResponse)
+  const currentPowerKw = sumOf(responding.map((iv) => iv.powerKw))
+  const dcPowerKw = sumOf(responding.map((iv) => iv.dcPowerKw))
   const environment = mapEnvironment(envItems)
   const staleCount = inverters.filter((iv) => iv.stale).length
   // 전압·주파수 평균은 실제 계측 중인 인버터로만 계산한다. 끊긴(stale) 인버터나 값이 전부 0 인
   // (noMeasurement) 인버터가 섞이면 60Hz→30Hz 처럼 왜곡된다. 계측 중인 인버터가 없으면 null('-').
   // 전부 수신 지연이면(화면에 '수신 지연' 표시) 마지막 계측값이라도 보여준다.
-  const measuring = inverters.filter((iv) => !iv.stale && !iv.noMeasurement)
+  const measuring = inverters.filter((iv) => !iv.stale && !iv.noMeasurement && !iv.noResponse)
   const allStale = inverters.length > 0 && staleCount === inverters.length
   const basis = measuring.length ? measuring : allStale ? inverters.filter((iv) => !iv.noMeasurement) : []
   return {
@@ -330,7 +343,7 @@ export function mapLatestToLive(invItems = [], envItems = []) {
     currentPowerKw,
     dcPowerKw,
     dcVoltV: avgOf(basis.map((iv) => iv.dcVoltV)),
-    dcCurrentA: sumOf(inverters.map((iv) => iv.dcCurrentA)),
+    dcCurrentA: sumOf(responding.map((iv) => iv.dcCurrentA)),
     acVoltV: avgOf(basis.flatMap((iv) => iv.acVoltV)),
     acFreqHz: avgOf(basis.map((iv) => iv.freqHz)),
     // 인버터 변환효율 = AC 출력 / DC 입력 (DC 가 너무 작으면 의미 없어 계산 안 함)
@@ -338,10 +351,12 @@ export function mapLatestToLive(invItems = [], envItems = []) {
     totalEnergyKwh: sumOf(inverters.map((iv) => iv.energyKwh)), // 보정 누적 발전량 합
     todayGenKwh: null, // apiPlantLive 에서 history 로 계산
     environment,
-    hasData: currentPowerKw != null || !!environment,
+    hasData: inverters.length > 0 || !!environment,
     stale: inverters.length ? allStale : !!environment?.stale,
     staleCount,
-    noMeasurementCount: inverters.filter((iv) => !iv.stale && iv.noMeasurement).length,
+    // 계측값 없는 인버터 = 통신 두절 또는 값이 전부 0(정지·무응답)
+    noMeasurementCount: inverters.filter((iv) => !iv.stale && (iv.noMeasurement || iv.noResponse)).length,
+    noResponseCount: inverters.filter((iv) => iv.noResponse).length,
     lastUpdatedAt: latestTime([...invItems, ...envItems].map((d) => d.measured_at)),
     updatedAt: hhmmss(new Date().toISOString()),
   }
@@ -361,6 +376,19 @@ function kstToday() {
   }
 }
 
+// history 행에서 receive_count 가 마지막으로 바뀐(=인버터가 응답한) 시각. 카운트가 2행 미만이면 판단 불가.
+function lastReceiveFromRows(items) {
+  const rows = items
+    .filter((d) => toNum(d.receive_count) != null)
+    .sort((a, b) => new Date(a.measured_at) - new Date(b.measured_at))
+  if (rows.length < 2) return { recvKnown: false, lastRecvAt: null }
+  let lastRecvAt = null
+  for (let k = 1; k < rows.length; k++) {
+    if (toNum(rows[k].receive_count) !== toNum(rows[k - 1].receive_count)) lastRecvAt = rows[k].measured_at
+  }
+  return { recvKnown: true, lastRecvAt } // lastRecvAt=null 이면 조회 구간(오늘) 내내 응답 없음
+}
+
 async function todayBaselineWh(plantId, deviceId) {
   const { ymd, minutes } = kstToday()
   const key = `${deviceId}|${ymd}`
@@ -368,14 +396,37 @@ async function todayBaselineWh(plantId, deviceId) {
 
   const res = await apiTelemetryHistory('inverter', plantId, { deviceId, rangeMinutes: minutes, limit: 1000 })
   const items = res?.items || []
+  if (!items.length) return null // 오늘 데이터가 아직 없으면 캐시하지 않고 다음 폴링 때 재시도
   const vals = items.map((d) => pickField(d, 'corrected_energy_wh', 'process_add_power')).filter((x) => x != null)
-  if (!vals.length) return null // 오늘 데이터가 아직 없으면 캐시하지 않고 다음 폴링 때 재시도
 
   // limit 에 걸렸으면 가장 이른 시점까지 못 받았을 수 있음(기준값이 늦게 잡혀 과소 계산 가능)
-  const entry = { wh: Math.min(...vals), partial: items.length >= 1000 }
+  const entry = {
+    wh: vals.length ? Math.min(...vals) : null,
+    partial: items.length >= 1000,
+    ...lastReceiveFromRows(items), // 첫 조회 시 통신 두절 시작 시각을 알기 위한 기준(이후엔 폴링마다 갱신)
+  }
   for (const k of baselineCache.keys()) if (!k.endsWith(`|${ymd}`)) baselineCache.delete(k)
   baselineCache.set(key, entry)
   return entry
+}
+
+// 인버터 통신 두절 판단. RTU 는 매분 요청(send_count)을 보내고 응답이 오면 receive_count 가 오른다.
+// 응답이 끊겨도 행은 계속 기록되고(is_stale=false) 값은 끊기기 직전 값을 몇 분 유지하다 0 으로 채워지므로,
+// 값이나 행 시각이 아니라 receive_count 가 멈춘 것으로 판단한다. (실서버 seq 869: 09:08 이후 3569 에서 정지)
+const commState = new Map() // deviceId → { receive, lastRecvAt }
+const NO_RESPONSE_MINUTES = 3
+
+function trackComm(d, base) {
+  const recv = toNum(d.receive_count)
+  if (recv == null || !d.device_id) return null
+  const prev = commState.get(d.device_id)
+  let lastRecvAt
+  if (prev) lastRecvAt = recv !== prev.receive ? d.measured_at : prev.lastRecvAt
+  else if (base?.recvKnown) lastRecvAt = base.lastRecvAt
+  else return null // 비교 기준(직전 폴링·오늘 이력)이 없으면 판단 보류
+  commState.set(d.device_id, { receive: recv, lastRecvAt })
+  const silentMin = lastRecvAt ? (new Date(d.measured_at) - new Date(lastRecvAt)) / 60000 : Infinity
+  return { noResponse: silentMin > NO_RESPONSE_MINUTES, lastRecvAt }
 }
 
 // 선택 발전소(plant_id)의 실시간 현황을 대시보드용으로 반환.
@@ -385,19 +436,26 @@ export async function apiPlantLive(plantId) {
     // 환경센서 조회 실패는 인버터 표시를 막지 않는다
     apiTelemetryLatest('environment', plantId).catch(() => null),
   ])
-  const live = mapLatestToLive(inv?.items || [], env?.items || [])
+  const invItems = inv?.items || []
 
-  const today = await Promise.all(
-    live.inverters.map(async (iv) => {
-      if (iv.energyKwh == null || !iv.deviceId) return null
+  // 인버터별 오늘 이력 기준(금일 발전량 시작값·마지막 응답 시각) — 인버터·날짜별 하루 1번 조회
+  const bases = await Promise.all(
+    invItems.map(async (d) => {
+      if (!d.device_id) return null
       try {
-        const base = await todayBaselineWh(plantId, iv.deviceId)
-        return base ? { kwh: Math.max(0, iv.energyKwh - base.wh / 1000), partial: base.partial } : null
+        return await todayBaselineWh(plantId, d.device_id)
       } catch {
         return null
       }
     })
   )
+  const live = mapLatestToLive(invItems, env?.items || [], invItems.map((d, i) => trackComm(d, bases[i])))
+
+  const today = live.inverters.map((iv, i) => {
+    const base = bases[i]
+    if (iv.energyKwh == null || base?.wh == null) return null
+    return { kwh: Math.max(0, iv.energyKwh - base.wh / 1000), partial: base.partial }
+  })
   today.forEach((t, i) => {
     live.inverters[i].todayKwh = t ? t.kwh : null
   })
