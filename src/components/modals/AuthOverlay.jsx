@@ -13,7 +13,7 @@ const ROLES = [
   { key: 'admin', label: '최고 관리자', sub: '전체 시스템 풀관제', group: 'supervisor', name: '최고 관리자', email: 'admin@example.com', desc: '전체 시스템 통합 관리자 (발전 성능 & 영농이행 풀 관제)' },
 ]
 
-export default function AuthOverlay({ onClose }) {
+export default function AuthOverlay({ onClose, notice = '' }) {
   const { apiSignIn, login } = useApp()
   const navigate = useNavigate()
   const [roleKey, setRoleKey] = useState(ROLES[0].key)
@@ -89,8 +89,8 @@ export default function AuthOverlay({ onClose }) {
           {role.desc}
         </div>
 
-        {error && (
-          <div style={{ background: 'var(--terracotta-soft)', color: 'var(--terracotta)', fontSize: 12, fontWeight: 600, padding: '8px 11px', borderRadius: 8, marginBottom: 12, lineHeight: 1.5 }}>{error}</div>
+        {(error || notice) && (
+          <div style={{ background: 'var(--terracotta-soft)', color: 'var(--terracotta)', fontSize: 12, fontWeight: 600, padding: '8px 11px', borderRadius: 8, marginBottom: 12, lineHeight: 1.5 }}>{error || notice}</div>
         )}
 
         <form onSubmit={doLogin}>

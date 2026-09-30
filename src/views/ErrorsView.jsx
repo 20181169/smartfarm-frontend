@@ -3,62 +3,13 @@ import { AlertTriangle, Download, Wifi, WifiOff, RefreshCw } from 'lucide-react'
 import { ERROR_LOGS } from '../data/market'
 import { exportTableToCsv } from '../lib/format'
 import { apiPlantsWithOverview, getToken } from '../lib/api'
+import { buildRealLogs } from '../lib/collectorLogs'
 
 const FILTERS = [
   { key: 'all', label: '전체' },
   { key: 'warning', label: '주의' },
   { key: 'resolved', label: '해제' },
 ]
-
-const fmtTime = (t) => {
-  try {
-    return t ? new Date(t).toLocaleString('ko-KR') : '-'
-  } catch {
-    return '-'
-  }
-}
-
-// 발전소별 overview 의 collector_health(수집기 오류) + data_status(수신지연)를 장애 로그로 변환.
-function buildRealLogs(data) {
-  const logs = []
-  for (const { plant, overview } of data) {
-    if (!overview) continue
-
-    const streams = overview.collector_health?.streams || []
-    for (const s of streams) {
-      if (s.status && s.status !== 'OK') {
-        logs.push({
-          _sort: s.last_error_at || s.last_checked_at || '',
-          time: fmtTime(s.last_error_at || s.last_checked_at),
-          plant: plant.name,
-          device: s.stream_name || '수집기',
-          type: '수집기 스트림 오류',
-          status: 'warning',
-          statusText: s.status,
-          desc: s.last_error || '수집기 스트림이 비정상 상태입니다.',
-          stateText: '확인 필요',
-        })
-      }
-    }
-
-    const ds = overview.data_status
-    if (ds && ds.is_stale) {
-      logs.push({
-        _sort: ds.last_updated_at || '',
-        time: fmtTime(ds.last_updated_at),
-        plant: plant.name,
-        device: `${ds.stale_devices ?? 0}/${ds.total_devices ?? 0} 장비`,
-        type: '데이터 수신 지연(STALE)',
-        status: 'warning',
-        statusText: 'STALE',
-        desc: `${ds.stale_devices ?? 0}개 장비 데이터 수신 지연 · 마지막 수신 ${fmtTime(ds.last_updated_at)}`,
-        stateText: '지연',
-      })
-    }
-  }
-  logs.sort((a, b) => (a._sort < b._sort ? 1 : -1))
-  return logs
-}
 
 export default function ErrorsView() {
   const [filter, setFilter] = useState('all')
@@ -165,7 +116,7 @@ export default function ErrorsView() {
                   <td>{log.device}</td>
                   <td>{log.type}</td>
                   <td><span className={`badge ${log.status === 'warning' ? 'badge-warning' : 'badge-active'}`}>{log.statusText}</span></td>
-                  <td style={{ textAlign: 'left', whiteSpace: 'normal', minWidth: 260 }}>{log.desc}</td>
+                  <td style={{ textAlign: 'left', whiteSpace: 'normal', minWidth: 260 }} title={log.raw}>{log.desc}</td>
                   <td><strong>{log.stateText}</strong></td>
                 </tr>
               ))}

@@ -114,7 +114,7 @@ function BackendPlants() {
 }
 
 export default function OverviewView() {
-  const { selectPlant, canSwitchPlant } = useApp()
+  const { selectPlant, canSwitchPlant, connected, backendPlants } = useApp()
   const navigate = useNavigate()
   const [detail, setDetail] = useState(null)
 
@@ -123,11 +123,19 @@ export default function OverviewView() {
     navigate('/')
   }
 
+  // 백엔드에 연결되면 헤더 합계는 실발전소 기준(데모 5개가 아니라)
+  const realCount = connected ? backendPlants.length : 0
+  const realCap = backendPlants.reduce((s, p) => s + (p.capacityKw ?? 0), 0)
+
   return (
     <div className="view stack">
       <div>
         <div className="view-title">전체 발전소 종합 현황</div>
-        <div className="view-sub">동양연합 영농형 태양광 · 총 {list.length}개 발전소 ({nf(totalCap)} kW)</div>
+        <div className="view-sub">
+          {realCount
+            ? `동양연합 영농형 태양광 · 실발전소 ${realCount}개 (${nf(realCap)} kW)`
+            : `동양연합 영농형 태양광 · 총 ${list.length}개 발전소 (${nf(totalCap)} kW)`}
+        </div>
       </div>
 
       <BackendPlants />

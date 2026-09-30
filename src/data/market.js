@@ -37,6 +37,10 @@ export const COMPARE_ROWS = [
   { id: '12142', name: '[춘천] 소양강 영농태양광', cap: '150 kW', gen: '289 kWh', hrs: '1.93 시간', pr: '85.0 %', rev: '5.1 만원', eff: '204.2 원/kWh', crop: '95.4 %', evalText: '우수' },
 ]
 
+// 수익 추정 단가 (대시보드 '발전 자산 수익' 카드 표기와 동일한 데모 단가)
+// smp: 원/kWh, rec: 원/REC(1MWh), weight: REC 가중치
+export const RPS_PRICE = { smp: 141.04, rec: 71800, weight: 1.5 }
+
 // REC 현물시장 시세
 export const REC_MARKET = {
   price: 74800,

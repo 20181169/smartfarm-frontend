@@ -15,8 +15,9 @@ export function weatherFromWmo(code) {
 }
 
 // 발전소 좌표 기준 실시간 날씨 (Open-Meteo). 실패 시 null 반환.
-export async function fetchWeather(plantId) {
-  const loc = PLANT_COORDS[plantId] || PLANT_COORDS['12139']
+// coords({ lat, lon }): 백엔드 발전소 등록 좌표. 없으면 데모 좌표표(없는 id 는 원주)로 조회.
+export async function fetchWeather(plantId, coords = null) {
+  const loc = coords ? { name: '', ...coords } : PLANT_COORDS[plantId] || PLANT_COORDS['12139']
   const url =
     `https://api.open-meteo.com/v1/forecast?latitude=${loc.lat}&longitude=${loc.lon}` +
     `&current_weather=true&daily=sunrise,sunset` +

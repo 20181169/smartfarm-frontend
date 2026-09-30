@@ -5,7 +5,9 @@ import { nowStamp } from '../../lib/format'
 import logo from '/logo.png'
 
 export default function TopHeader({ onToggleNav, onOpenAuth }) {
-  const { plant, plantId, plantList, selectPlant, canSwitchPlant, user, logout, theme, toggleTheme, connected } = useApp()
+  const {
+    plant, plantId, plantList, selectPlant, canSwitchPlant, user, logout, theme, toggleTheme, connected, isLive, liveState,
+  } = useApp()
   // 현재 선택 발전소가 목록에 없으면(데모↔백엔드 전환 직후) 앞에 붙여 셀렉터 값 불일치 방지.
   const options = plantList.some((p) => p.id === plantId) ? plantList : [plant, ...plantList]
   const [stamp, setStamp] = useState(nowStamp())
@@ -41,11 +43,16 @@ export default function TopHeader({ onToggleNav, onOpenAuth }) {
       </div>
 
       <div className="header-actions">
-        {connected && (
-          <span className="badge badge-active" title="백엔드 실시간 연동 중">
+        {/* '실시간'은 선택 발전소의 계측 데이터가 들어올 때만. 백엔드 연결만 됐으면 '계측 없음' */}
+        {connected && (isLive ? (
+          <span className="badge badge-active" title="선택 발전소 계측 데이터 수신 중">
             <Radio size={13} /> 실시간
           </span>
-        )}
+        ) : plant?._backend && liveState !== 'loading' ? (
+          <span className="badge badge-neutral" title="백엔드는 연결됐지만 선택 발전소의 계측 데이터가 없습니다">
+            <Radio size={13} /> 계측 없음
+          </span>
+        ) : null)}
         <span className="pill hide-sm mono">
           <Clock /> {stamp}
         </span>

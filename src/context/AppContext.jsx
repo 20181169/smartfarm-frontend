@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { PLANTS, DEFAULT_PLANT_ID, getPlant } from '../data/plants'
 import { fetchWeather } from '../lib/weather'
+import { smpWon, recWon } from '../lib/format'
 import {
-  apiLogin, apiGetMe, apiGetPlants, apiPlantLive, apiGetRoles, mapPlant, setToken, getToken,
+  apiLogin, apiGetMe, apiGetPlants, apiPlantLive, apiGetRoles, mapPlant, setToken, getToken, AUTH_EXPIRED_EVENT,
 } from '../lib/api'
 import { AppContext } from './useApp'
 
@@ -30,15 +31,23 @@ const TEMPLATE = PLANTS[DEFAULT_PLANT_ID]
 
 // mapPlant 결과(백엔드 발전소) → 대시보드 표시용 plant 객체.
 function toDisplayPlant(bp) {
+  const capacityKw = bp.capacityKw ?? TEMPLATE.capacityKw
   return {
     ...TEMPLATE,
     id: bp.id,
     name: bp.name,
     shortName: bp.name,
-    capacityKw: bp.capacityKw ?? TEMPLATE.capacityKw,
+    capacityKw,
+    // 목표 발전량은 템플릿(200kW)의 용량 대비 목표시간을 이 발전소 용량으로 환산
+    targetGenKwh: Math.round((TEMPLATE.targetGenKwh / TEMPLATE.capacityKw) * capacityKw),
+    // 사업주·안전관리자·시공사·인버터 모델은 백엔드에 없는 항목 → 템플릿(다른 발전소) 정보를 쓰지 않는다
+    owner: null,
+    manager: null,
+    contractor: null,
+    inverterModel: null,
     status: bp.status || 'ACTIVE',
-    address: bp.address ?? TEMPLATE.address,
-    location: bp.address ?? TEMPLATE.location,
+    address: bp.address ?? null,
+    location: bp.address ?? null,
     lat: bp.lat ?? null,
     lng: bp.lng ?? null,
     source: 'api',
@@ -62,6 +71,7 @@ export function AppProvider({ children }) {
   const [connected, setConnected] = useState(false)
   const [backendPlants, setBackendPlants] = useState([]) // 실발전소 목록(mapPlant 적용)
   const [live, setLive] = useState(null) // 선택 발전소 실시간 현황
+  const [liveState, setLiveState] = useState('idle') // idle | loading | ok | empty(계측 데이터 없음) | error
 
   // 선택 가능한 발전소: 연결되면 백엔드 실발전소, 아니면 목(데모).
   const backendDisplay = useMemo(() => backendPlants.map(toDisplayPlant), [backendPlants])
@@ -131,13 +141,22 @@ export function AppProvider({ children }) {
   useEffect(() => {
     if (!connected || !isBackendPlant) {
       setLive(null)
+      setLiveState('idle')
       return
     }
     let alive = true
+    setLive(null)
+    setLiveState('loading')
     const load = () =>
       apiPlantLive(plantId) // plantId = 백엔드 plant_id(UUID)
-        .then((l) => alive && setLive(l && l.hasData ? l : null))
-        .catch(() => alive && setLive(null))
+        .then((l) => {
+          if (!alive) return
+          const ok = !!(l && l.hasData)
+          setLive(ok ? l : null)
+          setLiveState(ok ? 'ok' : 'empty')
+        })
+        // 일시 조회 실패면 직전 계측값은 유지하고 상태만 표시(화면이 30초간 빈 화면으로 바뀌지 않게)
+        .catch(() => alive && setLiveState('error'))
     load()
     const t = setInterval(load, 30 * 1000)
     return () => {
@@ -146,11 +165,14 @@ export function AppProvider({ children }) {
     }
   }, [connected, isBackendPlant, plantId])
 
-  // Open-Meteo 날씨 (백엔드 환경센서가 없을 때 폴백)
+  // Open-Meteo 날씨 (백엔드 환경센서가 없을 때 폴백). 백엔드 발전소는 등록 좌표 기준.
+  const plantLat = basePlant?.lat ?? null
+  const plantLng = basePlant?.lng ?? null
   useEffect(() => {
     let alive = true
+    const coords = plantLat != null && plantLng != null ? { lat: plantLat, lon: plantLng } : null
     const load = async () => {
-      const w = await fetchWeather(plantId)
+      const w = await fetchWeather(plantId, coords)
       if (alive && w) setMeteo(w)
     }
     load()
@@ -159,7 +181,7 @@ export function AppProvider({ children }) {
       alive = false
       clearInterval(t)
     }
-  }, [plantId])
+  }, [plantId, plantLat, plantLng])
 
   // 실시간 계측(MRT 정규화 텔레메트리)을 발전소 객체에 병합 → 뷰는 그대로 실데이터 표시.
   // 백엔드가 주는 값은 0이어도 그대로 노출하고(실측), 미제공 값(PEAK·인버터 온도·시세·이력)은
@@ -171,38 +193,41 @@ export function AppProvider({ children }) {
     const joinPhases = (vals) =>
       vals.every((x) => x == null) ? '-' : vals.map((x) => (x == null ? '-' : x.toFixed(1))).join(', ')
 
-    const cur = live.currentPowerKw != null ? round(live.currentPowerKw, 2) : basePlant.currentPowerKw
+    const cur = round(live.currentPowerKw, 2) // 인버터 데이터가 없으면 null('-')
     const genLive = live.todayGenKwh != null
     const gen = genLive ? round(live.todayGenKwh) : basePlant.todayGenKwh
     const env = live.environment
-    const inv = live.inverters.length
-      ? live.inverters.map((iv) => ({
-          id: iv.id,
-          deviceId: iv.deviceId,
-          externalSeq: iv.externalSeq,
-          powerKw: round(iv.powerKw, 2), // AC 출력(grid_power_kw)
-          dcPowerKw: round(iv.dcPowerKw, 2), // DC 전력(pv_power_kw)
-          dcV: round(iv.dcVoltV), // pv_total_voltage_v
-          dcA: round(iv.dcCurrentA), // pv_total_current_a
-          acV: joinPhases(iv.acVoltV), // R-S, S-T, T-R 선간전압
-          acA: joinPhases(iv.acCurrentA), // R, S, T 상전류
-          freqHz: round(iv.freqHz),
-          energyKwh: round(iv.energyKwh), // 보정 누적(corrected_energy_wh)
-          todayGenKwh: round(iv.todayKwh),
-          peakKw: null, // 백엔드 미제공
-          temp: null, // 인버터 온도 미제공
-          runHours: null, // 미제공
-          // 지연=수신 끊김, 정지=수신은 되나 계측값이 모두 0(야간 정지 또는 인버터 통신 무응답)
-          state: iv.stale ? '지연' : iv.noMeasurement ? '정지' : '가동',
-          comm: iv.comm,
-          _live: true,
-        }))
-      : basePlant.inverters
+    // 인버터 데이터가 없으면 빈 목록(템플릿의 가상 인버터를 실발전소에 보여주지 않음)
+    const inv = live.inverters.map((iv) => ({
+      id: iv.id,
+      deviceId: iv.deviceId,
+      externalSeq: iv.externalSeq,
+      powerKw: round(iv.powerKw, 2), // AC 출력(grid_power_kw)
+      dcPowerKw: round(iv.dcPowerKw, 2), // DC 전력(pv_power_kw)
+      dcV: round(iv.dcVoltV), // pv_total_voltage_v
+      dcA: round(iv.dcCurrentA), // pv_total_current_a
+      acV: joinPhases(iv.acVoltV), // R-S, S-T, T-R 선간전압
+      acA: joinPhases(iv.acCurrentA), // R, S, T 상전류
+      freqHz: round(iv.freqHz),
+      energyKwh: round(iv.energyKwh), // 보정 누적(corrected_energy_wh)
+      todayGenKwh: round(iv.todayKwh),
+      peakKw: null, // 백엔드 미제공
+      temp: null, // 인버터 온도 미제공
+      runHours: null, // 미제공
+      // 지연=수신 끊김, 정지=수신은 되나 계측값이 모두 0(야간 정지 또는 인버터 통신 무응답)
+      state: iv.stale ? '지연' : iv.noMeasurement ? '정지' : '가동',
+      comm: iv.comm,
+      _live: true,
+    }))
     return {
       ...basePlant,
       currentPowerKw: cur,
       todayGenKwh: gen,
-      todayRevenueMan: +(gen * 0.017).toFixed(1),
+      // 금일 발전시간 = 금일 발전량 / 설비용량 (등가 가동시간)
+      todayGenHours: genLive && basePlant.capacityKw ? +(gen / basePlant.capacityKw).toFixed(2) : null,
+      yesterdayGenKwh: null, // 발전 이력 API 없음
+      // 대시보드 표기 단가(SMP + REC×가중치)와 같은 식으로 계산
+      todayRevenueMan: +((smpWon(gen) + recWon(gen)) / 10000).toFixed(1),
       co2ReducedTon: +((gen * 0.48) / 1000).toFixed(2),
       acPower: withUnit(live.currentPowerKw, 'kW'),
       dcPower: withUnit(live.dcPowerKw, 'kW'),
@@ -213,6 +238,7 @@ export function AppProvider({ children }) {
       conversionEff: live.conversionEff, // AC/DC(%) — 계산 불가면 null
       totalEnergyKwh: live.totalEnergyKwh,
       inverters: inv,
+      inverterModel: inv.length ? `${inv.length}대 (모델 정보 없음)` : null,
       soilMoisture: env && env.soilMoisture != null ? `${env.soilMoisture} %` : basePlant.soilMoisture,
       soilTemp: env && env.soilTemp != null ? `${env.soilTemp} °C` : basePlant.soilTemp,
       cardTemp: env?.airTemp != null ? `${env.airTemp.toFixed(1)}°C` : basePlant.cardTemp,
@@ -284,8 +310,21 @@ export function AppProvider({ children }) {
     setConnected(false)
     setBackendPlants([])
     setLive(null)
+    setLiveState('idle')
     setPlantId(DEFAULT_PLANT_ID)
   }, [])
+
+  // 사용 중 로그인 만료(API 401) → 로그아웃하고 재로그인 안내. 안내 없이 데모 화면으로 바뀌지 않게 한다.
+  const [sessionExpired, setSessionExpired] = useState(false)
+  useEffect(() => {
+    const onExpired = () => {
+      logout()
+      setSessionExpired(true)
+    }
+    window.addEventListener(AUTH_EXPIRED_EVENT, onExpired)
+    return () => window.removeEventListener(AUTH_EXPIRED_EVENT, onExpired)
+  }, [logout])
+  const clearSessionExpired = useCallback(() => setSessionExpired(false), [])
 
   // 역할 메뉴 그룹: 실계정은 level로, 데모는 선택한 demoRole로, 미로그인은 owner(발전사업자 화면).
   const menuRole =
@@ -304,6 +343,7 @@ export function AppProvider({ children }) {
     backendPlants,
     menuRole,
     isLive: !!(plant && plant._live),
+    liveState, // 백엔드 발전소 계측 조회 상태: loading | ok | empty(데이터 없음) | error
     // 감독 권한 = 메뉴 그룹이 supervisor (실계정 level≤60, 또는 데모에서 감독/관리자 선택).
     isSupervisor: menuRole === 'supervisor',
     selectPlant,
@@ -311,6 +351,8 @@ export function AppProvider({ children }) {
     login,
     apiSignIn,
     logout,
+    sessionExpired, // 로그인 만료로 자동 로그아웃됨 → 재로그인 안내
+    clearSessionExpired,
     refreshBackend,
     canSwitchPlant: user?.role !== '발전사업자',
   }

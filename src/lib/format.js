@@ -1,6 +1,11 @@
 // 숫자/파생 지표 포맷 헬퍼
+import { RPS_PRICE } from '../data/market'
 
 export const nf = (n) => Number(n).toLocaleString('ko-KR')
+
+// 발전량(kWh) → SMP·REC 수익(원). REC 는 1MWh 당 가격이라 /1000.
+export const smpWon = (kwh) => kwh * RPS_PRICE.smp
+export const recWon = (kwh) => (kwh / 1000) * RPS_PRICE.rec * RPS_PRICE.weight
 
 // 발전 효율 (%) = 현재출력 / 설비용량
 export function efficiency(plant) {
@@ -19,6 +24,19 @@ export function co2Kg(plant) {
 
 // 자산 수익 파생값
 export function assetRevenue(plant) {
+  if (plant._live) {
+    // 실연동: 금일은 실측 발전량 기반. 월·연·누적은 발전 이력 API 가 없어 금일값으로 외삽하지 않는다.
+    return {
+      today: `${plant.todayRevenueMan.toFixed(1)} 만원`,
+      monthly: '-',
+      yearly: '-',
+      total: '-',
+      todayCo2: `${co2Kg(plant)} kgCO₂`,
+      monthlyCo2: '-',
+      yearlyCo2: '-',
+      totalCo2: '-',
+    }
+  }
   return {
     today: `${plant.todayRevenueMan.toFixed(1)} 만원`,
     monthly: plant.smpMonthly || `${(plant.todayRevenueMan * 30).toFixed(0)} 만원`,

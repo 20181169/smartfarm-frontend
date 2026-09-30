@@ -14,8 +14,14 @@ export default function ReportView() {
   return (
     <div className="view stack">
       <div>
-        <div className="view-title">정기 발전 · AI 수익 분석 보고서</div>
-        <div className="view-sub">{plant.name} · 2026년 7월 기준</div>
+        <div className="view-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          정기 발전 · AI 수익 분석 보고서
+          {plant._backend && <span className="badge badge-neutral" style={{ fontSize: 11 }}>데모 보고서</span>}
+        </div>
+        <div className="view-sub">
+          {plant.name} · 2026년 7월 기준
+          {plant._backend && ' · 월간 발전 이력 API 연동 전이라 분석 문구·지표는 예시입니다'}
+        </div>
       </div>
 
       <div className="grid grid-4">

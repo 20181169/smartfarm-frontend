@@ -1,10 +1,12 @@
 import { Sprout } from 'lucide-react'
+import { useApp } from '../context/useApp'
 import { AGRI_ADMIN_DATA, complianceBadge } from '../data/compliance'
 
 // 사업자(발전소 소유주) 본인 발전소의 영농이행 준수 상태. 데모: 온누리3,4 기준.
 const s = AGRI_ADMIN_DATA.sites['12139']
 
 export default function OwnerAgriStatusView() {
+  const { plant } = useApp()
   const normal = s.status.includes('정상')
   return (
     <div className="view stack">
@@ -16,7 +18,10 @@ export default function OwnerAgriStatusView() {
       </div>
 
       <div className="card">
-        <div style={{ fontWeight: 800, fontSize: 16, marginBottom: 12 }}>🌾 {s.code} · 이행 상태</div>
+        {/* 실발전소 로그인이면 다른 발전소(온누리3,4) 이름 대신 내 발전소 이름 + 예시 표기 */}
+        <div style={{ fontWeight: 800, fontSize: 16, marginBottom: 12 }}>
+          🌾 {plant._backend ? `${plant.name} · 이행 상태 (예시 데이터)` : `${s.code} · 이행 상태`}
+        </div>
         <div className="grid grid-3">
           <div className="card" style={{ textAlign: 'center', background: 'var(--bg-subtle)' }}>
             <div className="text-muted" style={{ fontSize: 12, fontWeight: 700 }}>이행 상태</div>

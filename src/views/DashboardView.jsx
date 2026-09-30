@@ -2,16 +2,20 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Zap, Sun, Coins, Leaf, Activity, Cpu, Sprout,
-  BrainCircuit, TrendingUp, Info,
+  BrainCircuit, TrendingUp, Info, PlugZap,
 } from 'lucide-react'
 import { useApp } from '../context/useApp'
-import { efficiency, genRatio, co2Kg, assetRevenue, nf } from '../lib/format'
-import { YEARLY_RECORDS, REC_MARKET, SMP_MARKET } from '../data/market'
+import { efficiency, genRatio, co2Kg, assetRevenue, nf, smpWon, recWon } from '../lib/format'
+import { liveStatus } from '../lib/liveStatus'
+import { YEARLY_RECORDS, REC_MARKET, SMP_MARKET, RPS_PRICE } from '../data/market'
 import {
   HourlyGenChart, MonthlyTrendChart, YearlyGenChart, RecMarketChart, SmpMarketChart,
 } from '../components/charts'
 
 const yearlyTotal = YEARLY_RECORDS.reduce((s, r) => s + r.genKwh, 0)
+
+// '… 발전소' 로 끝나는 이름에 '발전소'가 또 붙지 않게
+const titleOf = (name) => `${name}${/발전소$/.test(name) ? '' : ' 발전소'} 현황`
 
 function Meter({ pct, gradient }) {
   return (
@@ -21,12 +25,15 @@ function Meter({ pct, gradient }) {
   )
 }
 
-function GenCard({ title, color, value, unit, chart, tableHead, tableRows, foot }) {
+function GenCard({ title, badge, color, value, unit, chart, tableHead, tableRows, foot }) {
   const [mode, setMode] = useState('chart')
   return (
     <div className="card">
       <div className="card-header">
-        <span className="card-title">{title}</span>
+        <span className="card-title">
+          {title}
+          {badge && <span className="badge badge-neutral" style={{ marginLeft: 6, fontSize: 10.5 }}>{badge}</span>}
+        </span>
         <div className="segmented">
           <button className={mode === 'chart' ? 'active' : ''} onClick={() => setMode('chart')}>차트</button>
           <button className={mode === 'table' ? 'active' : ''} onClick={() => setMode('table')}>표</button>
@@ -57,19 +64,132 @@ function GenCard({ title, color, value, unit, chart, tableHead, tableRows, foot 
   )
 }
 
-export default function DashboardView() {
-  const { plant, weather, isLive } = useApp()
+function WeatherStrip({ plant, weather }) {
+  return (
+    <div className="weather-strip">
+      <div className="weather-strip-top">
+        <span style={{ fontWeight: 800 }}>{plant.name} 기상 관측</span>
+        <span className={`badge ${weather?.source === 'sensor' && weather.stale ? 'badge-warning' : 'badge-sync'}`}>
+          {weather?.source === 'sensor'
+            ? weather.stale ? '🛰️ 백엔드 센서 · 수신 지연' : '🛰️ 백엔드 센서 실시간'
+            : '🟢 기상청 실시간 동기화'}
+          {weather ? ` (${weather.syncedAt})` : ''}
+        </span>
+      </div>
+      <div className="weather-metrics">
+        <span>날씨 <b>{weather?.cond ?? '☀️ 맑음'}</b></span>
+        <span>기온 <b>{weather?.temp ?? plant.cardTemp}</b></span>
+        {weather?.surfaceTemp && <span>모듈온도 <b>{weather.surfaceTemp}</b></span>}
+        <span>습도 <b>{weather?.humidity ?? '62%'}</b></span>
+        <span>풍속 <b>{weather?.wind ?? '1.2m/s'}</b></span>
+        <span>일출 <b>{weather?.sunrise ?? '05:28'}</b></span>
+        <span>일몰 <b>{weather?.sunset ?? '19:51'}</b></span>
+        <span>경사일사량 <b className="text-terra">{weather?.inclinedIrr ?? '485 W/m²'}</b></span>
+        <span>수평일사량 <b className="text-sage">{weather?.horizontalIrr ?? '460 W/m²'}</b></span>
+      </div>
+    </div>
+  )
+}
+
+// 사업주·안전관리자·시공사는 백엔드 발전소에 없는 항목이라 '-' (템플릿의 다른 발전소 정보를 쓰지 않음)
+function PlantInfoCard({ plant }) {
+  const v = (x) => x ?? '-'
+  return (
+    <div className="card">
+      <div className="card-header"><span className="card-title"><Info /> 발전소 정보</span></div>
+      <div className="info-list" style={{ lineHeight: 1.5 }}>
+        <div className="info-row"><span>사업주</span><b>{v(plant.owner)}</b></div>
+        <div className="info-row"><span>안전관리자</span><b>{v(plant.manager)}</b></div>
+        <div className="info-row"><span>시공사</span><b>{v(plant.contractor)}</b></div>
+        <div className="info-row"><span>소재지</span><b>{v(plant.location)}</b></div>
+        {plant._backend && (
+          <div className="info-row"><span>설비용량</span><b>{plant.capacityKw != null ? `${plant.capacityKw} kW` : '-'}</b></div>
+        )}
+        <div className="info-row"><span>인버터</span><b>{v(plant.inverterModel)}</b></div>
+      </div>
+    </div>
+  )
+}
+
+const NO_DATA_MSG = {
+  loading: '계측 데이터를 불러오는 중…',
+  error: '계측 데이터를 불러오지 못했습니다. 30초마다 다시 시도합니다.',
+}
+
+// 백엔드 발전소인데 계측 데이터가 없으면(장비 미연동 등) 데모 수치 대신 빈 상태를 보여준다.
+function NoDataDashboard({ plant, weather, liveState }) {
   const navigate = useNavigate()
-  const eff = efficiency(plant)
+  return (
+    <div className="view stack">
+      <div>
+        <div className="view-title" style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          {titleOf(plant.name)}
+          {liveState !== 'loading' && <span className="badge badge-neutral" style={{ fontSize: 11 }}>계측 데이터 없음</span>}
+        </div>
+        <div className="view-sub">{NO_DATA_MSG[liveState] || '연동된 인버터·환경센서 계측 데이터가 없습니다.'}</div>
+      </div>
+
+      <WeatherStrip plant={plant} weather={weather} />
+
+      {liveState !== 'loading' && (
+        <div className="card" style={{ textAlign: 'center', padding: '28px 16px' }}>
+          <PlugZap size={28} style={{ color: 'var(--text-3)' }} />
+          <div style={{ fontWeight: 800, marginTop: 8 }}>
+            {liveState === 'error' ? '계측 데이터 조회 실패' : '이 발전소에는 아직 수신된 계측 데이터가 없습니다'}
+          </div>
+          <div className="text-muted" style={{ fontSize: 13, marginTop: 6, lineHeight: 1.6 }}>
+            인버터·환경센서 장비 등록과 RTU 수집 설정이 끝나면 실시간 출력·발전량이 이 화면에 표시됩니다.
+          </div>
+          <button className="icon-btn" style={{ marginTop: 12 }} onClick={() => navigate('/comparison')}>
+            발전소별 데이터 상태 보기
+          </button>
+        </div>
+      )}
+
+      <div className="grid grid-3">
+        <PlantInfoCard plant={plant} />
+      </div>
+    </div>
+  )
+}
+
+export default function DashboardView() {
+  const { plant, weather, isLive, liveState } = useApp()
+  const navigate = useNavigate()
+
+  if (plant._backend && !isLive) {
+    return <NoDataDashboard plant={plant} weather={weather} liveState={liveState} />
+  }
+
+  const eff = plant.currentPowerKw == null ? null : efficiency(plant)
   const ratio = genRatio(plant)
   const asset = assetRevenue(plant)
+  const status = isLive ? liveStatus(plant, weather) : null
+  const statusBadge = status && (status.level === 'ok' ? 'badge-active' : 'badge-warning')
+
+  // RPS 카드: 실연동이면 금일 실측 발전량 × 표기 단가, 이력이 필요한 월·누적 값은 '-'
+  const rps = isLive
+    ? {
+        smpDaily: `${nf(Math.round(smpWon(plant.todayGenKwh)))} 원`,
+        smpMonthly: '-',
+        recLabel: '일 발전금액',
+        recRevenue: `${nf(Math.round(recWon(plant.todayGenKwh)))} 원`,
+        recAcc: '-',
+      }
+    : {
+        smpDaily: plant.smpDaily,
+        smpMonthly: plant.smpMonthly,
+        recLabel: '발전금액',
+        recRevenue: plant.recRevenue,
+        recAcc: plant.recAcc,
+      }
 
   const kpis = [
     {
       label: '실시간 현재 출력', icon: Zap, tint: 'var(--sage)', bg: 'var(--sage-soft)',
-      value: plant.currentPowerKw.toFixed(1), unit: 'kW', color: 'var(--sage-strong)',
-      meterLabel: '발전 효율', meterVal: `${eff}%`,
-      meterPct: eff * 3, gradient: 'linear-gradient(90deg,#10b981,#f59e0b,#ef4444)',
+      value: plant.currentPowerKw == null ? '-' : plant.currentPowerKw.toFixed(1), unit: 'kW', color: 'var(--sage-strong)',
+      meterLabel: '발전 효율', meterVal: eff == null ? '-' : `${eff}%`,
+      meterPct: eff == null ? 0 : eff * 3, gradient: 'linear-gradient(90deg,#10b981,#f59e0b,#ef4444)',
     },
     {
       // 실연동인데 금일 발전량을 계산 못 한 경우(이력 없음)는 템플릿값이라 표시
@@ -100,49 +220,33 @@ export default function DashboardView() {
     { label: '누적 발전 수익', value: asset.total, co2: asset.totalCo2, color: 'var(--violet)' },
   ]
 
+  // 실발전소 화면에서 데모 값인 카드 표시 (시세·이력·작물은 백엔드 미제공)
+  const demoBadge = plant._backend ? '데모' : null
+
   return (
     <div className="view stack">
       <div>
         <div className="view-title" style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          {plant.name} 발전소 현황
+          {titleOf(plant.name)}
           {isLive && (plant._stale
             ? <span className="badge badge-warning" style={{ fontSize: 11 }}>🛰️ 백엔드 연결됨 · 수신 지연</span>
             : <span className="badge badge-active" style={{ fontSize: 11 }}>🛰️ 백엔드 실시간</span>)}
+          {isLive && liveState === 'error' && (
+            <span className="badge badge-warning" style={{ fontSize: 11 }}>갱신 실패 · 마지막 수신값 표시</span>
+          )}
         </div>
         <div className="view-sub">
           {isLive
             ? plant._stale
-              ? `백엔드 연동됨 · 계측 데이터 수신 지연 (마지막 수신: ${plant._lastUpdatedAt ? new Date(plant._lastUpdatedAt).toLocaleString('ko-KR') : '확인 불가'}) · 시세/이력은 데모`
+              ? `백엔드 연동됨 · 계측 데이터 수신 지연 (마지막 수신: ${plant._lastUpdatedAt ? new Date(plant._lastUpdatedAt).toLocaleString('ko-KR') : '확인 불가'}) · 시세/이력/작물은 데모`
               : `인버터·환경센서 실시간 텔레메트리 (백엔드 연동)${
                   plant._invNoData ? ` · 인버터 ${plant._invNoData}/${plant._invTotal}대 계측값 없음(정지 또는 통신 무응답)` : ''
-                } · 시세/이력은 데모`
+                } · 시세/이력/작물은 데모`
             : '실시간 발전 · 수익 · AI 진단 통합 모니터링'}
         </div>
       </div>
 
-      {/* 날씨 스트립 */}
-      <div className="weather-strip">
-        <div className="weather-strip-top">
-          <span style={{ fontWeight: 800 }}>{plant.name} 기상 관측</span>
-          <span className={`badge ${weather?.source === 'sensor' && weather.stale ? 'badge-warning' : 'badge-sync'}`}>
-            {weather?.source === 'sensor'
-              ? weather.stale ? '🛰️ 백엔드 센서 · 수신 지연' : '🛰️ 백엔드 센서 실시간'
-              : '🟢 기상청 실시간 동기화'}
-            {weather ? ` (${weather.syncedAt})` : ''}
-          </span>
-        </div>
-        <div className="weather-metrics">
-          <span>날씨 <b>{weather?.cond ?? '☀️ 맑음'}</b></span>
-          <span>기온 <b>{weather?.temp ?? plant.cardTemp}</b></span>
-          {weather?.surfaceTemp && <span>모듈온도 <b>{weather.surfaceTemp}</b></span>}
-          <span>습도 <b>{weather?.humidity ?? '62%'}</b></span>
-          <span>풍속 <b>{weather?.wind ?? '1.2m/s'}</b></span>
-          <span>일출 <b>{weather?.sunrise ?? '05:28'}</b></span>
-          <span>일몰 <b>{weather?.sunset ?? '19:51'}</b></span>
-          <span>경사일사량 <b className="text-terra">{weather?.inclinedIrr ?? '485 W/m²'}</b></span>
-          <span>수평일사량 <b className="text-sage">{weather?.horizontalIrr ?? '460 W/m²'}</b></span>
-        </div>
-      </div>
+      <WeatherStrip plant={plant} weather={weather} />
 
       {/* KPI */}
       <div className="grid grid-kpi">
@@ -161,23 +265,35 @@ export default function DashboardView() {
         ))}
       </div>
 
-      {/* AI 배너 */}
-      <div className="ai-banner">
-        <div>
-          <span className="ai-banner-tag"><BrainCircuit /> AI 고장 자동 진단 엔진</span>
-          <span className="badge badge-warning" style={{ marginLeft: 8 }}>AI 진단 완료</span>
-          <div className="ai-subject">{plant.aiSubject}</div>
-          <div className="ai-desc">{plant.aiDesc}</div>
+      {/* 상태 배너: 실연동은 실측 기반 규칙 진단, 데모는 AI 진단 문구 */}
+      {status ? (
+        <div className="ai-banner">
+          <div>
+            <span className="ai-banner-tag"><Activity /> 실측 기반 상태 진단</span>
+            <span className={`badge ${statusBadge}`} style={{ marginLeft: 8 }}>{status.badge}</span>
+            <div className="ai-subject">{status.subject}</div>
+            <div className="ai-desc">{status.desc}</div>
+          </div>
+          <button className="btn-terracotta" onClick={() => navigate('/equipment')}><Cpu /> 설비 현황</button>
         </div>
-        <button className="btn-terracotta" onClick={() => navigate('/report')}><TrendingUp /> AI 진단 리포트</button>
-      </div>
+      ) : (
+        <div className="ai-banner">
+          <div>
+            <span className="ai-banner-tag"><BrainCircuit /> AI 고장 자동 진단 엔진</span>
+            <span className="badge badge-warning" style={{ marginLeft: 8 }}>AI 진단 완료</span>
+            <div className="ai-subject">{plant.aiSubject}</div>
+            <div className="ai-desc">{plant.aiDesc}</div>
+          </div>
+          <button className="btn-terracotta" onClick={() => navigate('/report')}><TrendingUp /> AI 진단 리포트</button>
+        </div>
+      )}
 
       {/* 자산 수익 */}
       <div className="card">
         <div className="card-header">
-          <span className="card-title"><Coins /> 발전 자산 수익 현황 [SMP + (REC × 가중치 1.5)] & 친환경 ESG</span>
+          <span className="card-title"><Coins /> 발전 자산 수익 현황 [SMP + (REC × 가중치 {RPS_PRICE.weight})] & 친환경 ESG</span>
           <span className="text-muted hide-sm" style={{ fontSize: 12 }}>
-            SMP <b className="text-terra">141.04원</b> · REC <b className="text-sage">71,800원</b> (×1.5)
+            SMP <b className="text-terra">{RPS_PRICE.smp}원</b> · REC <b className="text-sage">{nf(RPS_PRICE.rec)}원</b> (×{RPS_PRICE.weight})
           </span>
         </div>
         <div className="grid grid-4">
@@ -189,6 +305,11 @@ export default function DashboardView() {
             </div>
           ))}
         </div>
+        {isLive && (
+          <div className="text-muted" style={{ fontSize: 11.5, marginTop: 10 }}>
+            금일 수익은 실측 발전량 × 위 단가(데모 단가)로 계산합니다. 금월·금년·누적은 발전 이력 API 연동 전이라 표시하지 않습니다.
+          </div>
+        )}
       </div>
 
       {/* 위젯 그리드 */}
@@ -197,7 +318,9 @@ export default function DashboardView() {
         <div className="card">
           <div className="card-header">
             <span className="card-title"><Activity /> 변환효율 & 계측 상태</span>
-            <span className="badge badge-active">정상</span>
+            {status
+              ? <span className={`badge ${statusBadge}`}>{status.badge}</span>
+              : <span className="badge badge-active">정상</span>}
           </div>
           <div className="info-list">
             <div className="info-row">
@@ -248,7 +371,9 @@ export default function DashboardView() {
         <div className="card">
           <div className="card-header">
             <span className="card-title"><Sprout /> 작물 · 토양 센서</span>
-            <span className="badge badge-active">생육 양호</span>
+            {plant._backend
+              ? <span className="badge badge-neutral">데모 · 센서 미연동</span>
+              : <span className="badge badge-active">생육 양호</span>}
           </div>
           <div className="info-list">
             <div className="info-row"><span>재배 작물</span><b>{plant.cropType}</b></div>
@@ -261,16 +386,19 @@ export default function DashboardView() {
 
         {/* 일 발전량 */}
         <GenCard
-          title="일 발전량" color="var(--blue)" value={nf(plant.todayGenKwh)} unit="kWh"
+          title="일 발전량" badge={isLive ? '그래프 데모' : null} color="var(--blue)" value={nf(plant.todayGenKwh)} unit="kWh"
           chart={<HourlyGenChart hourly={plant.hourly} predict={plant.hourlyPredict} />}
           tableHead={['시간', '금일(kWh)', '전일(kWh)']}
           tableRows={['06h', '08h', '10h', '12h', '14h', '16h', '18h'].map((h, i) => [h, `${plant.hourly[i] ?? 0}`, `${Math.round((plant.hourly[i] ?? 0) * 0.9)}`])}
-          foot={[['전일 발전량', `${nf(plant.yesterdayGenKwh)} kWh`], ['금일 발전시간', `${plant.todayGenHours} 시간`]]}
+          foot={[
+            ['전일 발전량', plant.yesterdayGenKwh == null ? '-' : `${nf(plant.yesterdayGenKwh)} kWh`],
+            ['금일 발전시간', plant.todayGenHours == null ? '-' : `${plant.todayGenHours} 시간`],
+          ]}
         />
 
         {/* 월 발전량 */}
         <GenCard
-          title="월 발전량" color="var(--teal)" value={plant.monthlyGenKwh?.replace(' kWh', '') ?? '-'} unit="kWh"
+          title="월 발전량" badge={demoBadge} color="var(--teal)" value={plant.monthlyGenKwh?.replace(' kWh', '') ?? '-'} unit="kWh"
           chart={<MonthlyTrendChart trend={plant.monthlyTrend} />}
           tableHead={['일자', '금월(kWh)', '전월(kWh)']}
           tableRows={[0, 4, 9, 14, 19].map((i) => [`${i + 1}일`, `${plant.monthlyTrend?.[i] ?? '-'}`, `${Math.round((plant.monthlyTrend?.[i] ?? 0) * 0.92)}`])}
@@ -279,7 +407,7 @@ export default function DashboardView() {
 
         {/* 연 발전량 */}
         <GenCard
-          title="연 발전량" color="var(--lime)" value={nf(yearlyTotal)} unit="kWh"
+          title="연 발전량" badge={demoBadge} color="var(--lime)" value={nf(yearlyTotal)} unit="kWh"
           chart={<YearlyGenChart />}
           tableHead={['월별', '발전량(kWh)', '일평균시간']}
           tableRows={YEARLY_RECORDS.map((r) => [r.month, nf(r.genKwh), `${r.avgHours} h`])}
@@ -288,21 +416,27 @@ export default function DashboardView() {
 
         {/* RPS 예상 금액 */}
         <div className="card">
-          <div className="card-header"><span className="card-title"><Coins /> 예상 발전 금액 (RPS)</span></div>
+          <div className="card-header">
+            <span className="card-title"><Coins /> 예상 발전 금액 (RPS)</span>
+            {isLive && <span className="badge badge-neutral" style={{ fontSize: 10.5 }}>금일 실측 × 데모 단가</span>}
+          </div>
           <div className="info-list">
             <div style={{ fontWeight: 800, color: 'var(--sage-strong)' }}>SMP (전력계통 한계가격)</div>
-            <div className="info-row"><span>일 발전금액</span><b className="text-sage">{plant.smpDaily}</b></div>
-            <div className="info-row"><span>월 발전금액</span><b className="text-sage">{plant.smpMonthly}</b></div>
+            <div className="info-row"><span>일 발전금액</span><b className="text-sage">{rps.smpDaily}</b></div>
+            <div className="info-row"><span>월 발전금액</span><b className="text-sage">{rps.smpMonthly}</b></div>
             <hr style={{ border: 'none', borderTop: '1px dashed var(--border)', margin: '2px 0' }} />
             <div style={{ fontWeight: 800, color: 'var(--sage-strong)' }}>REC (신재생에너지 인증서)</div>
-            <div className="info-row"><span>발전금액</span><b className="text-terra">{plant.recRevenue}</b></div>
-            <div className="info-row"><span>누적 REC</span><b className="text-sage">{plant.recAcc}</b></div>
+            <div className="info-row"><span>{rps.recLabel}</span><b className="text-terra">{rps.recRevenue}</b></div>
+            <div className="info-row"><span>누적 REC</span><b className="text-sage">{rps.recAcc}</b></div>
           </div>
         </div>
 
         {/* REC 시장 */}
         <div className="card">
-          <div className="card-header"><span className="card-title"><TrendingUp /> REC 시장 동향</span><span className="badge badge-sync">🟢 KPX 시세</span></div>
+          <div className="card-header">
+            <span className="card-title"><TrendingUp /> REC 시장 동향</span>
+            {demoBadge ? <span className="badge badge-neutral">데모 시세</span> : <span className="badge badge-sync">🟢 KPX 시세</span>}
+          </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', background: 'var(--bg-subtle)', padding: '8px 12px', borderRadius: 10, marginBottom: 8 }}>
             <div>
               <div style={{ fontSize: 10.5, color: 'var(--text-3)', fontWeight: 700 }}>현물시장 종가</div>
@@ -318,7 +452,10 @@ export default function DashboardView() {
 
         {/* SMP 시장 */}
         <div className="card">
-          <div className="card-header"><span className="card-title"><TrendingUp /> 실시간 SMP 전력시장</span><span className="badge badge-sync">🟢 KPX 시세</span></div>
+          <div className="card-header">
+            <span className="card-title"><TrendingUp /> 실시간 SMP 전력시장</span>
+            {demoBadge ? <span className="badge badge-neutral">데모 시세</span> : <span className="badge badge-sync">🟢 KPX 시세</span>}
+          </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', background: 'var(--bg-subtle)', padding: '8px 12px', borderRadius: 10, marginBottom: 8 }}>
             <div>
               <div style={{ fontSize: 10.5, color: 'var(--text-3)', fontWeight: 700 }}>육지 SMP 단가</div>
@@ -352,16 +489,7 @@ export default function DashboardView() {
         </div>
 
         {/* 발전소 정보 */}
-        <div className="card">
-          <div className="card-header"><span className="card-title"><Info /> 발전소 정보</span></div>
-          <div className="info-list" style={{ lineHeight: 1.5 }}>
-            <div className="info-row"><span>사업주</span><b>{plant.owner}</b></div>
-            <div className="info-row"><span>안전관리자</span><b>{plant.manager}</b></div>
-            <div className="info-row"><span>시공사</span><b>{plant.contractor}</b></div>
-            <div className="info-row"><span>소재지</span><b>{plant.location}</b></div>
-            <div className="info-row"><span>인버터</span><b>{plant.inverterModel}</b></div>
-          </div>
-        </div>
+        <PlantInfoCard plant={plant} />
       </div>
     </div>
   )

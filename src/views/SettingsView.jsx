@@ -2,7 +2,9 @@ import { User, FileSignature, Bell } from 'lucide-react'
 import { useApp } from '../context/useApp'
 
 export default function SettingsView() {
-  const { plant } = useApp()
+  const { plant, user } = useApp()
+  // 백엔드 계정이면 본인 이름(연락처는 백엔드에 없음). 데모 사용자 정보(템플릿)를 실계정에 보여주지 않는다.
+  const apiUser = user?.source === 'api'
 
   return (
     <div className="view stack">
@@ -15,8 +17,8 @@ export default function SettingsView() {
         {/* 나의 설정 정보 */}
         <div className="card">
           <div className="card-header"><span className="card-title"><User /> 나의 설정 정보</span></div>
-          <div className="field"><label>이름</label><input defaultValue="김진성" /></div>
-          <div className="field"><label>연락처</label><input defaultValue="010 3574 1072" /></div>
+          <div className="field"><label>이름</label><input defaultValue={apiUser ? user.name : '김진성'} /></div>
+          <div className="field"><label>연락처</label><input defaultValue={apiUser ? '' : '010 3574 1072'} placeholder="010-0000-0000" /></div>
           <div className="field">
             <label>경보 알람 시간</label>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -34,7 +36,7 @@ export default function SettingsView() {
         <div className="card">
           <div className="card-header"><span className="card-title"><FileSignature /> 발전소 계약정보</span></div>
           <div className="info-row bordered"><span>발전소 이름</span><b>{plant.shortName}</b></div>
-          <div className="info-row bordered" style={{ margin: '10px 0' }}><span>인버터 종류</span><b>[Hyundai] {plant.inverterModel}</b></div>
+          <div className="info-row bordered" style={{ margin: '10px 0' }}><span>인버터 종류</span><b>{plant._backend ? plant.inverterModel ?? '-' : `[Hyundai] ${plant.inverterModel}`}</b></div>
           <div className="field"><label>계약 주체</label>
             <select defaultValue="한국전력공사(KEPCO)"><option>한국전력공사(KEPCO)</option><option>전력거래소(KPX)</option><option>자가용 / PPA</option></select>
           </div>

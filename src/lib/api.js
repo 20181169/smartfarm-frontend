@@ -7,6 +7,7 @@
 
 const BASE = import.meta.env.VITE_API_BASE || '/api/v1'
 const TOKEN_KEY = 'dongyang_token'
+export const AUTH_EXPIRED_EVENT = 'dongyang:auth-expired'
 
 export function getToken() {
   try {
@@ -60,6 +61,11 @@ async function request(path, { method = 'GET', body, auth = true, signal } = {})
   }
 
   if (!res.ok) {
+    // 보낸 토큰이 만료·무효(백엔드 JWT 기본 30분) → 토큰을 지우고 앱에 알린다(AppContext 가 로그아웃 + 재로그인 안내).
+    if (res.status === 401 && auth && token) {
+      setToken(null)
+      globalThis.dispatchEvent?.(new Event(AUTH_EXPIRED_EVENT))
+    }
     const msg = json?.message || `요청 실패 (${res.status})`
     throw new ApiError(msg, res.status, json?.error_code)
   }
@@ -313,10 +319,12 @@ export function mapLatestToLive(invItems = [], envItems = []) {
   const dcPowerKw = sumOf(inverters.map((iv) => iv.dcPowerKw))
   const environment = mapEnvironment(envItems)
   const staleCount = inverters.filter((iv) => iv.stale).length
-  // 전압·주파수 평균은 정상 수신 중인 인버터로만 계산(끊긴 인버터의 0 값이 섞이면 60Hz→40Hz 처럼 왜곡).
-  // 전부 지연이면 마지막 값이라도 보여주기 위해 전체로 계산한다.
-  const fresh = inverters.filter((iv) => !iv.stale)
-  const basis = fresh.length ? fresh : inverters
+  // 전압·주파수 평균은 실제 계측 중인 인버터로만 계산한다. 끊긴(stale) 인버터나 값이 전부 0 인
+  // (noMeasurement) 인버터가 섞이면 60Hz→30Hz 처럼 왜곡된다. 계측 중인 인버터가 없으면 null('-').
+  // 전부 수신 지연이면(화면에 '수신 지연' 표시) 마지막 계측값이라도 보여준다.
+  const measuring = inverters.filter((iv) => !iv.stale && !iv.noMeasurement)
+  const allStale = inverters.length > 0 && staleCount === inverters.length
+  const basis = measuring.length ? measuring : allStale ? inverters.filter((iv) => !iv.noMeasurement) : []
   return {
     inverters,
     currentPowerKw,
@@ -331,7 +339,7 @@ export function mapLatestToLive(invItems = [], envItems = []) {
     todayGenKwh: null, // apiPlantLive 에서 history 로 계산
     environment,
     hasData: currentPowerKw != null || !!environment,
-    stale: inverters.length ? staleCount === inverters.length : !!environment?.stale,
+    stale: inverters.length ? allStale : !!environment?.stale,
     staleCount,
     noMeasurementCount: inverters.filter((iv) => !iv.stale && iv.noMeasurement).length,
     lastUpdatedAt: latestTime([...invItems, ...envItems].map((d) => d.measured_at)),

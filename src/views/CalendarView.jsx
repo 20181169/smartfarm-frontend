@@ -33,8 +33,15 @@ export default function CalendarView() {
   return (
     <div className="view stack">
       <div>
-        <div className="view-title">{year}년 {month}월 발전량 달력</div>
-        <div className="view-sub">날짜를 클릭하면 상세 일간 리포트가 표시됩니다</div>
+        <div className="view-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {year}년 {month}월 발전량 달력
+          {plant._backend && <span className="badge badge-neutral" style={{ fontSize: 11 }}>데모</span>}
+        </div>
+        <div className="view-sub">
+          {plant._backend
+            ? '일별 발전 이력 API 연동 전이라 예시 값입니다 · 날짜를 클릭하면 상세 일간 리포트가 표시됩니다'
+            : '날짜를 클릭하면 상세 일간 리포트가 표시됩니다'}
+        </div>
       </div>
 
       <div className="card">

@@ -21,7 +21,7 @@ const DEVICE_STATUS_BADGE = {
 
 // 백엔드 장비 인벤토리 (선택 발전소가 백엔드 발전소일 때만 표시)
 function DeviceInventory({ plantId }) {
-  const [state, setState] = useState('idle') // idle | loading | ok | error
+  const [state, setState] = useState('idle') // idle | loading | ok | error | forbidden
   const [devices, setDevices] = useState([])
   const [msg, setMsg] = useState('')
 
@@ -36,6 +36,11 @@ function DeviceInventory({ plantId }) {
       setDevices(data?.items || [])
       setState('ok')
     } catch (err) {
+      // 조회 전용(VIEWER) 계정은 장비 조회 권한(device:read)이 없다 → 카드 자체를 숨김
+      if (err.status === 403) {
+        setState('forbidden')
+        return
+      }
       setState('error')
       setMsg(
         err.status === 401
@@ -50,6 +55,8 @@ function DeviceInventory({ plantId }) {
   useEffect(() => {
     load()
   }, [load])
+
+  if (state === 'forbidden') return null
 
   return (
     <div className="card">
@@ -105,12 +112,14 @@ const peakOf = (inv) => (inv._live ? inv.peakKw : inv.powerKw * 1.25)
 const freqOf = (inv) => (inv._live ? inv.freqHz : 60)
 
 export default function EquipmentView() {
-  const { plant } = useApp()
+  const { plant, liveState } = useApp()
   const [tab, setTab] = useState('inverter')
   const [logModal, setLogModal] = useState(null) // 'inverter' | 'mppt' | null
 
-  const invs = plant.inverters
   const isLive = !!plant._live
+  // 백엔드 발전소인데 계측 데이터가 없으면 템플릿의 가상 인버터를 보여주지 않는다
+  const noData = !!plant._backend && !isLive
+  const invs = noData ? [] : plant.inverters
   const totalDcP = sum(invs.map(dcPowerOf))
   const totalAcP = sum(invs.map((i) => i.powerKw))
   const totalGen = sum(invs.map((i) => i.todayGenKwh))
@@ -120,7 +129,11 @@ export default function EquipmentView() {
       <div>
         <div className="view-title">{plant._backend ? plant.name : `[${plant.id}] ${plant.shortName}`} 설비 현황</div>
         <div className="view-sub">
-          {isLive ? '인버터 실시간 계측 (MRT 정규화 텔레메트리)' : '인버터 및 MPPT 스트링 실시간 계측'}
+          {isLive
+            ? '인버터 실시간 계측 (MRT 정규화 텔레메트리)'
+            : noData
+              ? liveState === 'loading' ? '계측 데이터를 불러오는 중…' : '연동된 인버터 계측 데이터가 없습니다'
+              : '인버터 및 MPPT 스트링 실시간 계측'}
         </div>
       </div>
 
@@ -134,8 +147,11 @@ export default function EquipmentView() {
           </div>
           <button
             className="btn-terracotta"
-            disabled={isLive && tab === 'mppt'}
-            title={isLive && tab === 'mppt' ? 'MPPT 데이터는 수집하지 않습니다' : undefined}
+            disabled={noData || (isLive && tab === 'mppt')}
+            title={
+              noData ? '연동된 계측 데이터가 없습니다'
+                : isLive && tab === 'mppt' ? 'MPPT 데이터는 수집하지 않습니다' : undefined
+            }
             onClick={() => setLogModal(tab === 'mppt' ? 'mppt' : 'inverter')}
           >
             <ScrollText /> 이력 로그 조회
@@ -146,7 +162,13 @@ export default function EquipmentView() {
           👈 좌우로 스와이프하여 상세 데이터를 확인하세요
         </div>
 
-        {tab === 'inverter' ? (
+        {tab === 'inverter' && noData ? (
+          <div className="text-muted" style={{ fontSize: 13, padding: '10px 2px', lineHeight: 1.6 }}>
+            {liveState === 'loading'
+              ? '불러오는 중…'
+              : '이 발전소에는 아직 수신된 인버터 계측 데이터가 없습니다. 장비 등록과 RTU 수집 설정이 끝나면 표시됩니다.'}
+          </div>
+        ) : tab === 'inverter' ? (
           <div className="table-wrap">
             <table className="data">
               <thead>
@@ -179,7 +201,7 @@ export default function EquipmentView() {
                         {inv.state || '가동'}
                       </span>
                     </td>
-                    <td>{inv.dcV ?? '-'}</td><td>{inv.dcA ?? '-'}</td><td>{f1(dcPowerOf(inv))}</td>
+                    <td>{f1(inv.dcV)}</td><td>{f1(inv.dcA)}</td><td>{f1(dcPowerOf(inv))}</td>
                     <td>{inv.acV}</td><td>{inv.acA}</td><td><strong>{f1(inv.powerKw)}</strong></td>
                     <td>{f1(peakOf(inv))}</td><td>{f1(freqOf(inv))}</td><td>{inv.temp ?? '-'}</td>
                     <td><strong>{inv.todayGenKwh ?? '-'}</strong></td>
@@ -189,7 +211,7 @@ export default function EquipmentView() {
               </tbody>
             </table>
           </div>
-        ) : isLive ? (
+        ) : plant._backend ? (
           <div className="text-muted" style={{ fontSize: 13, padding: '10px 2px', lineHeight: 1.6 }}>
             MPPT(스트링) 채널 데이터는 MRT 연동 범위에서 수집하지 않습니다.
             <br />(업체 원본 PvChVolt·PvCurrent·Mppt_Volt·Mppt_Current 는 미수집 항목)
