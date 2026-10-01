@@ -7,18 +7,21 @@ export const nf = (n) => Number(n).toLocaleString('ko-KR')
 export const smpWon = (kwh) => kwh * RPS_PRICE.smp
 export const recWon = (kwh) => (kwh / 1000) * RPS_PRICE.rec * RPS_PRICE.weight
 
-// 발전 효율 (%) = 현재출력 / 설비용량
+// 발전 효율 (%) = 현재출력 / 설비용량. 현재출력을 알 수 없으면(통신 두절 등) '-'
 export function efficiency(plant) {
+  if (plant.currentPowerKw == null) return '-'
   return ((plant.currentPowerKw / plant.capacityKw) * 100).toFixed(1)
 }
 
-// 목표 대비 발전 비율 (%)
+// 목표 대비 발전 비율 (%). 금일 발전량을 알 수 없으면 '-'
 export function genRatio(plant) {
+  if (plant.todayGenKwh == null) return '-'
   return ((plant.todayGenKwh / plant.targetGenKwh) * 100).toFixed(1)
 }
 
-// 금일 CO₂ 감축 (kg)
+// 금일 CO₂ 감축 (kg). 금일 발전량을 알 수 없으면 '-'
 export function co2Kg(plant) {
+  if (plant.todayGenKwh == null) return '-'
   return Math.round(plant.todayGenKwh * 0.48)
 }
 
@@ -26,12 +29,13 @@ export function co2Kg(plant) {
 export function assetRevenue(plant) {
   if (plant._live) {
     // 실연동: 금일은 실측 발전량 기반. 월·연·누적은 발전 이력 API 가 없어 금일값으로 외삽하지 않는다.
+    const kg = co2Kg(plant)
     return {
-      today: `${plant.todayRevenueMan.toFixed(1)} 만원`,
+      today: plant.todayRevenueMan == null ? '-' : `${plant.todayRevenueMan.toFixed(1)} 만원`,
       monthly: '-',
       yearly: '-',
       total: '-',
-      todayCo2: `${co2Kg(plant)} kgCO₂`,
+      todayCo2: kg === '-' ? '-' : `${kg} kgCO₂`,
       monthlyCo2: '-',
       yearlyCo2: '-',
       totalCo2: '-',

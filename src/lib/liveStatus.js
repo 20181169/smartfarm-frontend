@@ -46,8 +46,10 @@ export function liveStatus(plant, weather, now = new Date()) {
   const lost = invs.filter((iv) => iv.state === '통신 두절')
   const stopped = invs.filter((iv) => iv.state === '정지')
   const standby = invs.filter((iv) => iv.state === '대기')
-  const envStale = weather?.source === 'sensor' && !!weather.stale
-  const envNote = envStale ? ` 환경센서도 ${weather.syncedAt} 이후 새 데이터가 없습니다.` : ''
+  // 응답 없는 환경센서(seq). AppContext 날씨의 staleSeqs — 전부/일부 무응답 모두 포함
+  const envDown = weather?.source === 'sensor' ? weather.staleSeqs || [] : []
+  const envStale = envDown.length > 0
+  const envNote = envStale ? ` 환경센서 ${envDown.join('·')}도 응답이 없습니다.` : ''
   const phase = dayPhase(weather?.sunrise, weather?.sunset, now)
 
   if (!invs.length) {
@@ -76,7 +78,8 @@ export function liveStatus(plant, weather, now = new Date()) {
       .filter(Boolean)
       .map((t) => new Date(t))
       .sort((a, b) => a - b)[0]
-    const since = firstAt ? `${timeLabel(firstAt, now)} 이후` : '오늘 계속'
+    // 시작 시각을 모르면(오늘 이력 내내 무응답) '오늘 0시 이전부터'
+    const since = firstAt ? `${timeLabel(firstAt, now)} 이후` : '오늘 0시 이전부터'
     const startedPhase = firstAt ? dayPhase(weather?.sunrise, weather?.sunset, firstAt) : null
     // 야간에 끊겨 아직 야간이면 경보하지 않는다(일부 인버터는 야간에 통신을 멈춤 — MRT 도 야간엔 두절 알람 해제).
     // 주간에 끊긴 두절은 저녁·야간이 돼도 계속 경보한다. 시작 시각을 모르면(오늘 내내 무응답) 새벽에만 보류.
@@ -87,7 +90,7 @@ export function liveStatus(plant, weather, now = new Date()) {
       badge: nightOnly ? '야간 무응답' : '통신 두절',
       subject: `인버터 ${lost.map(invLabel).join(', ')} 통신 두절 (${since} 응답 없음${firstAt ? ` · ${durationLabel(now - firstAt)}째` : ''})`,
       desc:
-        'RTU는 계속 요청을 보내지만 인버터 응답이 없습니다. 화면의 0 kW는 측정값이 아니라 값이 없는 상태라, ' +
+        'RTU는 계속 요청을 보내지만 인버터 응답이 없어 현재 출력·발전량을 알 수 없습니다(0 이 아니라 확인 불가). ' +
         '발전이 멈춘 것인지 통신만 끊긴 것인지는 데이터로 구분되지 않습니다. ' +
         '현장에서 인버터 표시창·계량기로 발전 여부를 확인하고 RS-485 통신선·통신 전원을 점검하세요.' +
         envNote,
@@ -144,8 +147,8 @@ export function liveStatus(plant, weather, now = new Date()) {
     return {
       level: 'warn',
       badge: '점검 필요',
-      subject: '환경센서 수신 지연',
-      desc: `인버터 ${invs.length}대는 정상 가동 중이지만 환경센서는 ${weather.syncedAt} 이후 새 데이터가 없습니다.`,
+      subject: `환경센서 ${envDown.join('·')} 응답 없음`,
+      desc: `인버터 ${invs.length}대는 정상 가동 중이지만 환경센서 ${envDown.join('·')}가 응답하지 않습니다.`,
     }
   }
 

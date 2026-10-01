@@ -194,8 +194,9 @@ export function AppProvider({ children }) {
       vals.every((x) => x == null) ? '-' : vals.map((x) => (x == null ? '-' : x.toFixed(1))).join(', ')
 
     const cur = round(live.currentPowerKw, 2) // 인버터 데이터가 없으면 null('-')
+    // 금일 발전량을 계산할 수 없으면(이력 없음·오늘 내내 통신 두절) null('-') — 템플릿 값으로 채우지 않는다
     const genLive = live.todayGenKwh != null
-    const gen = genLive ? round(live.todayGenKwh) : basePlant.todayGenKwh
+    const gen = genLive ? round(live.todayGenKwh) : null
     const env = live.environment
     // 인버터 데이터가 없으면 빈 목록(템플릿의 가상 인버터를 실발전소에 보여주지 않음).
     // 통신 두절 인버터의 계측값은 측정값이 아니므로(RTU 가 채운 0·직전값) '-' 로 표시한다.
@@ -237,8 +238,8 @@ export function AppProvider({ children }) {
       todayGenHours: genLive && basePlant.capacityKw ? +(gen / basePlant.capacityKw).toFixed(2) : null,
       yesterdayGenKwh: null, // 발전 이력 API 없음
       // 대시보드 표기 단가(SMP + REC×가중치)와 같은 식으로 계산
-      todayRevenueMan: +((smpWon(gen) + recWon(gen)) / 10000).toFixed(1),
-      co2ReducedTon: +((gen * 0.48) / 1000).toFixed(2),
+      todayRevenueMan: genLive ? +((smpWon(gen) + recWon(gen)) / 10000).toFixed(1) : null,
+      co2ReducedTon: genLive ? +((gen * 0.48) / 1000).toFixed(2) : null,
       acPower: withUnit(live.currentPowerKw, 'kW'),
       dcPower: withUnit(live.dcPowerKw, 'kW'),
       dcVolt: withUnit(live.dcVoltV, 'V'),
@@ -258,20 +259,23 @@ export function AppProvider({ children }) {
       _invNoData: live.noMeasurementCount || 0, // 계측값 없는(통신 두절·정지) 인버터 수
       _invNoResponse: live.noResponseCount || 0, // 그중 통신 두절(receive_count 정지)로 확인된 수
       _invTotal: live.inverters.length,
-      _todayGenLive: genLive, // false 면 금일 발전량은 템플릿(데모)값
+      _todayGenLive: genLive, // false 면 금일 발전량 확인 불가('-')
       _todayGenPartial: !!live.todayGenPartial,
+      _todayGenUntil: live.todayGenUntilAt, // 통신 두절 전 마지막 응답 시각 → '금일 발전량 (09:08까지)'
     }
   }, [basePlant, live])
 
-  // 날씨: 백엔드 환경센서가 있으면 우선, 없으면 Open-Meteo.
-  // 기온=외기온도 센서, 경사/수평 일사량=센서 종류(sun_type)별 실측값.
+  // 날씨: 응답 중인 백엔드 환경센서 값을 우선, 센서가 없으면 Open-Meteo.
+  // 기온=외기온도 센서(없으면 기상센서), 모듈온도=표면온도 센서, 경사/수평 일사량=센서 종류(sun_type)별 실측값.
   const weather = useMemo(() => {
     const env = live?.environment
-    if (env) {
+    const sensorInfo = env && { staleSeqs: env.staleSeqs, sensorCount: env.sensorCount, source: 'sensor' }
+    if (env && !env.stale) {
       const fmt = (v, unit, d = 1) => (v == null ? '-' : `${v.toFixed(d)}${unit}`)
       const irr = env.irradiance
       return {
-        cond: irr == null ? '-' : irr < 10 ? '🌙 일사 없음' : irr > 300 ? '☀️ 맑음' : '☁️ 흐림',
+        // 일사 센서가 응답하지 않으면 날씨 상태는 예보(Open-Meteo)로
+        cond: irr == null ? meteo?.cond ?? '-' : irr < 10 ? '🌙 일사 없음' : irr > 300 ? '☀️ 맑음' : '☁️ 흐림',
         temp: fmt(env.airTemp, '°C'),
         surfaceTemp: env.surfaceTemp != null ? fmt(env.surfaceTemp, '°C') : null,
         humidity: fmt(env.humidity, '%', 0),
@@ -281,8 +285,27 @@ export function AppProvider({ children }) {
         sunrise: meteo?.sunrise ?? '05:28',
         sunset: meteo?.sunset ?? '19:42',
         syncedAt: env.ts,
-        stale: env.stale,
-        source: 'sensor',
+        stale: false,
+        ...sensorInfo,
+      }
+    }
+    if (env) {
+      // 센서가 전부 응답 없음 → 예보 값(있으면)을 보여주고 배지로 센서 상태를 알린다.
+      // 예보의 일사량은 실측이 아니므로 표시하지 않는다.
+      return {
+        cond: meteo?.cond ?? '-',
+        temp: meteo?.temp ?? '-',
+        surfaceTemp: null,
+        humidity: meteo?.humidity ?? '-',
+        wind: meteo?.wind ?? '-',
+        inclinedIrr: '-',
+        horizontalIrr: '-',
+        sunrise: meteo?.sunrise ?? '05:28',
+        sunset: meteo?.sunset ?? '19:42',
+        syncedAt: env.ts,
+        stale: true,
+        forecast: !!meteo,
+        ...sensorInfo,
       }
     }
     return meteo ? { ...meteo, source: 'meteo' } : null

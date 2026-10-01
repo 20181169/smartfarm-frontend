@@ -64,16 +64,31 @@ function GenCard({ title, badge, color, value, unit, chart, tableHead, tableRows
   )
 }
 
+// 센서 상태 배지: 전부 응답 없음(예보값 표시) / 일부 응답 없음 / 실시간
+function sensorBadge(weather) {
+  if (weather?.source !== 'sensor') return { cls: 'badge-sync', text: '🟢 기상청 실시간 동기화' }
+  const down = weather.staleSeqs || []
+  if (weather.stale) {
+    return {
+      cls: 'badge-warning',
+      text: `🛰️ 환경센서 응답 없음${weather.forecast ? ' · 예보값 표시' : ''} · 마지막 ${weather.syncedAt}`,
+    }
+  }
+  if (down.length) {
+    return { cls: 'badge-warning', text: `🛰️ 백엔드 센서 · ${down.length}/${weather.sensorCount}대 응답 없음 (${weather.syncedAt})` }
+  }
+  return { cls: 'badge-sync', text: `🛰️ 백엔드 센서 실시간 (${weather.syncedAt})` }
+}
+
 function WeatherStrip({ plant, weather }) {
+  const badge = sensorBadge(weather)
   return (
     <div className="weather-strip">
       <div className="weather-strip-top">
         <span style={{ fontWeight: 800 }}>{plant.name} 기상 관측</span>
-        <span className={`badge ${weather?.source === 'sensor' && weather.stale ? 'badge-warning' : 'badge-sync'}`}>
-          {weather?.source === 'sensor'
-            ? weather.stale ? '🛰️ 백엔드 센서 · 수신 지연' : '🛰️ 백엔드 센서 실시간'
-            : '🟢 기상청 실시간 동기화'}
-          {weather ? ` (${weather.syncedAt})` : ''}
+        <span className={`badge ${badge.cls}`} title={weather?.staleSeqs?.length ? `응답 없는 센서: seq ${weather.staleSeqs.join(', ')}` : undefined}>
+          {badge.text}
+          {weather?.source !== 'sensor' && weather ? ` (${weather.syncedAt})` : ''}
         </span>
       </div>
       <div className="weather-metrics">
@@ -161,19 +176,26 @@ export default function DashboardView() {
     return <NoDataDashboard plant={plant} weather={weather} liveState={liveState} />
   }
 
-  const eff = plant.currentPowerKw == null ? null : efficiency(plant)
-  const ratio = genRatio(plant)
+  const eff = efficiency(plant) // 현재출력을 모르면 '-'
+  const ratio = genRatio(plant) // 금일 발전량을 모르면 '-'
+  const kg = co2Kg(plant)
+  const gen = plant.todayGenKwh // 실연동에서 계산 불가면 null(오늘 내내 통신 두절 등)
   const asset = assetRevenue(plant)
   const status = isLive ? liveStatus(plant, weather) : null
   const statusBadge = status && (status.level === 'ok' ? 'badge-active' : 'badge-warning')
+  const hhmm = (iso) => new Date(iso).toTimeString().slice(0, 5)
+  const genLabel = !isLive ? '금일 발전량'
+    : gen == null ? '금일 발전량 (확인 불가)'
+      : plant._todayGenUntil ? `금일 발전량 (${hhmm(plant._todayGenUntil)}까지 수신분)` : '금일 발전량'
 
   // RPS 카드: 실연동이면 금일 실측 발전량 × 표기 단가, 이력이 필요한 월·누적 값은 '-'
+  const won = (f) => (gen == null ? '-' : `${nf(Math.round(f(gen)))} 원`)
   const rps = isLive
     ? {
-        smpDaily: `${nf(Math.round(smpWon(plant.todayGenKwh)))} 원`,
+        smpDaily: won(smpWon),
         smpMonthly: '-',
         recLabel: '일 발전금액',
-        recRevenue: `${nf(Math.round(recWon(plant.todayGenKwh)))} 원`,
+        recRevenue: won(recWon),
         recAcc: '-',
       }
     : {
@@ -189,27 +211,29 @@ export default function DashboardView() {
       label: '실시간 현재 출력', icon: Zap, tint: 'var(--sage)', bg: 'var(--sage-soft)',
       value: plant.currentPowerKw == null ? '-' : plant.currentPowerKw.toFixed(1),
       unit: plant.currentPowerKw == null ? '' : 'kW', color: 'var(--sage-strong)',
-      meterLabel: '발전 효율', meterVal: eff == null ? '-' : `${eff}%`,
-      meterPct: eff == null ? 0 : eff * 3, gradient: 'linear-gradient(90deg,#10b981,#f59e0b,#ef4444)',
+      meterLabel: '발전 효율', meterVal: eff === '-' ? '-' : `${eff}%`,
+      meterPct: eff === '-' ? 0 : eff * 3, gradient: 'linear-gradient(90deg,#10b981,#f59e0b,#ef4444)',
     },
     {
-      // 실연동인데 금일 발전량을 계산 못 한 경우(이력 없음)는 템플릿값이라 표시
-      label: isLive && !plant._todayGenLive ? '금일 발전량 (데모)' : '금일 발전량',
+      // 실연동에서 계산할 수 없으면(오늘 내내 통신 두절 등) '확인 불가' — 0 이나 템플릿 값으로 채우지 않는다
+      label: genLabel,
       icon: Sun, tint: 'var(--blue)', bg: 'color-mix(in srgb, var(--blue) 14%, transparent)',
-      value: nf(plant.todayGenKwh), unit: 'kWh', color: 'var(--blue)',
-      meterLabel: `목표(${plant.targetGenKwh}kWh) 대비`, meterVal: `${ratio}%`,
-      meterPct: +ratio, gradient: 'linear-gradient(90deg,#3b82f6,#10b981)',
+      value: gen == null ? '-' : nf(gen), unit: gen == null ? '' : 'kWh', color: 'var(--blue)',
+      meterLabel: `목표(${plant.targetGenKwh}kWh) 대비`, meterVal: ratio === '-' ? '-' : `${ratio}%`,
+      meterPct: ratio === '-' ? 0 : +ratio, gradient: 'linear-gradient(90deg,#3b82f6,#10b981)',
     },
     {
       label: '금일 예상 수익', icon: Coins, tint: 'var(--terracotta)', bg: 'var(--terracotta-soft)',
-      value: plant.todayRevenueMan.toFixed(1), unit: '만원', color: 'var(--terracotta)',
-      meterLabel: 'SMP+REC 연산', meterVal: '정상',
+      value: plant.todayRevenueMan == null ? '-' : plant.todayRevenueMan.toFixed(1),
+      unit: plant.todayRevenueMan == null ? '' : '만원', color: 'var(--terracotta)',
+      meterLabel: 'SMP+REC 연산', meterVal: plant.todayRevenueMan == null ? '-' : '정상',
       meterPct: 82, gradient: 'linear-gradient(90deg,#f59e0b,#10b981)',
     },
     {
       label: '온실가스 감축량', icon: Leaf, tint: 'var(--emerald)', bg: 'color-mix(in srgb, var(--emerald) 14%, transparent)',
-      value: plant.co2ReducedTon.toFixed(2), unit: 'Ton', color: 'var(--sage-strong)',
-      meterLabel: '금일 감축량', meterVal: `${co2Kg(plant)} kgCO₂`,
+      value: plant.co2ReducedTon == null ? '-' : plant.co2ReducedTon.toFixed(2),
+      unit: plant.co2ReducedTon == null ? '' : 'Ton', color: 'var(--sage-strong)',
+      meterLabel: '금일 감축량', meterVal: kg === '-' ? '-' : `${kg} kgCO₂`,
       meterPct: 70, gradient: 'linear-gradient(90deg,#10b981,#059669)',
     },
   ]
@@ -389,7 +413,8 @@ export default function DashboardView() {
 
         {/* 일 발전량 */}
         <GenCard
-          title="일 발전량" badge={isLive ? '그래프 데모' : null} color="var(--blue)" value={nf(plant.todayGenKwh)} unit="kWh"
+          title="일 발전량" badge={isLive ? '그래프 데모' : null} color="var(--blue)"
+          value={gen == null ? '-' : nf(gen)} unit={gen == null ? '' : 'kWh'}
           chart={<HourlyGenChart hourly={plant.hourly} predict={plant.hourlyPredict} />}
           tableHead={['시간', '금일(kWh)', '전일(kWh)']}
           tableRows={['06h', '08h', '10h', '12h', '14h', '16h', '18h'].map((h, i) => [h, `${plant.hourly[i] ?? 0}`, `${Math.round((plant.hourly[i] ?? 0) * 0.9)}`])}

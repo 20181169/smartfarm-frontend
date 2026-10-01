@@ -177,6 +177,12 @@ function whenLabel(iso) {
   return `${d.getMonth() + 1}/${d.getDate()} ${p(d.getHours())}:${p(d.getMinutes())}`
 }
 
+// '…이전부터 응답 없음' 의 기준(조회한 이력의 첫 행). 오늘 0시대면 '오늘 0시'.
+function silentBeforeLabel(iso) {
+  const d = new Date(iso)
+  return d.toDateString() === new Date().toDateString() && d.getHours() === 0 ? '오늘 0시' : whenLabel(iso)
+}
+
 const toNum = (v) => {
   if (v == null || v === '') return null
   const n = Number(v)
@@ -263,51 +269,56 @@ function mapEnvironment(items) {
   const normalized = items.filter((d) => 'temperature_c' in d || 'irradiance_wm2' in d)
   if (!normalized.length) return null
 
-  // 수신 지연(is_stale) 안 된 장비 값을 우선 사용
-  const ordered = [...normalized].sort((a, b) => Number(!!a.is_stale) - Number(!!b.is_stale))
+  // 응답 없는(is_stale) 센서의 값은 측정값이 아니다. 백엔드(03fdf56)는 센서의 마지막 수신시각으로 stale 을 판단하고,
+  // 무응답 센서 행도 RTU 가 0 으로 채워 계속 들어온다(10/1 실측: 113·114 기온·일사 0) → 응답 중인 센서 값만 쓴다.
+  const fresh = normalized.filter((d) => !d.is_stale)
   const pick = (key, ...preds) => {
     for (const pred of preds) {
-      const hit = ordered.find((d) => pred(d) && toNum(d[key]) != null)
-      if (hit) return { value: toNum(hit[key]), stale: !!hit.is_stale }
+      const hit = fresh.find((d) => pred(d) && toNum(d[key]) != null)
+      if (hit) return toNum(hit[key])
     }
     return null
   }
-  const any = () => true
+  const ws = isWeatherStation
+  const notWs = (d) => !isWeatherStation(d)
 
-  const airTemp = pick('temperature_c', (d) => tempKind(d) === 'ambient', isWeatherStation)
-  const surfaceTemp = pick('temperature_c', (d) => tempKind(d) === 'surface')
-  const inclinedIrr = pick('irradiance_wm2', (d) => irrKind(d) === 'inclined')
-  const horizontalIrr = pick('irradiance_wm2', (d) => irrKind(d) === 'horizontal')
-  const anyIrr = pick('irradiance_wm2', any)
+  // 기상센서(WH-2300S)는 백엔드가 temperature_type/sun_type 0(표면·경사)으로 보내지만 실제론 외기온도이고,
+  // 일사·조도·UV 는 주간에도 0 이라(10/1 실측) 쓰지 않는다 → 모듈온도·일사량은 엠알티 센서에서만.
+  const airTemp = pick('temperature_c', (d) => notWs(d) && tempKind(d) === 'ambient', ws)
+  const surfaceTemp = pick('temperature_c', (d) => notWs(d) && tempKind(d) === 'surface')
+  const inclinedIrr = pick('irradiance_wm2', (d) => notWs(d) && irrKind(d) === 'inclined')
+  const horizontalIrr = pick('irradiance_wm2', (d) => notWs(d) && irrKind(d) === 'horizontal')
+  const anyIrr = pick('irradiance_wm2', notWs)
   // 습도·풍속 등 기상값은 기상센서에서만 가져온다. 온도/일사 전용(엠알티-Modbus) 센서는 이 칸을
   // 0 으로 채워 보내므로(실측 확인: 113·114 humidity=0) 쓰면 '습도 0%'로 잘못 표시된다.
-  const humidity = pick('humidity_pct', isWeatherStation)
-  const wind = pick('wind_speed_ms', isWeatherStation) // 업체 답변 대기(값 스케일 변경 가능)
-  const windDir = pick('wind_direction_deg', isWeatherStation)
-  const rain60m = pick('rainfall_60m_mm', isWeatherStation) // 최근 60분 누적(mm/h 아님)
-  const lux = pick('light_lux', isWeatherStation)
-  const uvRaw = pick('uv_index_raw', isWeatherStation) // UVI 원시값 — 일반 UV Index 로 해석 금지
+  const humidity = pick('humidity_pct', ws)
+  const wind = pick('wind_speed_ms', ws) // 업체 답변 대기(값 스케일 변경 가능)
+  const windDir = pick('wind_direction_deg', ws)
+  const rain60m = pick('rainfall_60m_mm', ws) // 최근 60분 누적(mm/h 아님)
+  const lux = pick('light_lux', ws)
+  const uvRaw = pick('uv_index_raw', ws) // UVI 원시값 — 일반 UV Index 로 해석 금지
 
-  const used = [airTemp, surfaceTemp, inclinedIrr, horizontalIrr, anyIrr, humidity, wind].filter(Boolean)
-  if (!used.length) return null
-
-  const v = (x) => (x ? x.value : null)
-  const measuredAt = latestTime(normalized.map((d) => d.measured_at))
+  // 응답 중인 센서가 없으면 마지막 수신시각(없으면 행 시각)을 '마지막 응답'으로 표시
+  const measuredAt = fresh.length
+    ? latestTime(fresh.map((d) => d.measured_at))
+    : latestTime(normalized.map((d) => d.last_received_at ?? d.measured_at))
   return {
-    airTemp: v(airTemp), // 외기온도
-    surfaceTemp: v(surfaceTemp), // 표면(모듈)온도
-    inclinedIrr: v(inclinedIrr),
-    horizontalIrr: v(horizontalIrr),
-    irradiance: v(horizontalIrr) ?? v(inclinedIrr) ?? v(anyIrr),
-    humidity: v(humidity),
-    wind: v(wind),
-    windDir: v(windDir),
-    rain60m: v(rain60m),
-    lux: v(lux),
-    uvRaw: v(uvRaw),
+    airTemp, // 외기온도
+    surfaceTemp, // 표면(모듈)온도
+    inclinedIrr,
+    horizontalIrr,
+    irradiance: horizontalIrr ?? inclinedIrr ?? anyIrr,
+    humidity,
+    wind,
+    windDir,
+    rain60m,
+    lux,
+    uvRaw,
     soilTemp: null, // MRT 환경센서엔 토양값 없음 → 상위에서 템플릿 폴백
     soilMoisture: null,
-    stale: used.every((x) => x.stale),
+    stale: !fresh.length, // 응답 중인 센서가 하나도 없음
+    staleSeqs: normalized.filter((d) => d.is_stale).map((d) => d.external_seq ?? '?'), // 응답 없는 센서 번호
+    sensorCount: normalized.length,
     measuredAt,
     ts: whenLabel(measuredAt),
   }
@@ -322,7 +333,11 @@ export function mapLatestToLive(invItems = [], envItems = [], comm = []) {
     iv.noResponse = c ? c.noResponse : null // null = 판단 불가(송수신 카운트·이력 없음)
     iv.lastRecvAt = c ? c.lastRecvAt : null
     // 응답이 끊겨도 RTU 는 행을 계속 기록하므로 행 시각은 '최종 통신'이 아니다 → 마지막 응답 시각으로 표시
-    if (c?.noResponse) iv.comm = c.lastRecvAt ? `${whenLabel(c.lastRecvAt)} 이후 응답 없음` : '오늘 응답 없음'
+    if (c?.noResponse) {
+      iv.comm = c.lastRecvAt
+        ? `${whenLabel(c.lastRecvAt)} 이후 응답 없음`
+        : c.silentBefore ? `${silentBeforeLabel(c.silentBefore)} 이전부터 응답 없음` : '응답 없음'
+    }
     return iv
   })
   // 통신 두절 인버터의 값은 측정값이 아니다(끊기기 직전 값을 몇 분 유지하다 0 으로 채워짐) → 출력 합계에서 제외.
@@ -376,17 +391,19 @@ function kstToday() {
   }
 }
 
-// history 행에서 receive_count 가 마지막으로 바뀐(=인버터가 응답한) 시각. 카운트가 2행 미만이면 판단 불가.
+// history 행에서 receive_count 가 마지막으로 오른(=인버터가 응답한) 시각. 카운트가 2행 미만이면 판단 불가.
+// RTU 는 송수신 카운트를 매일 00:09 경 0 으로 리셋하므로(10/1 실측: 3569→0) 감소는 응답으로 보지 않는다.
 function lastReceiveFromRows(items) {
   const rows = items
     .filter((d) => toNum(d.receive_count) != null)
     .sort((a, b) => new Date(a.measured_at) - new Date(b.measured_at))
-  if (rows.length < 2) return { recvKnown: false, lastRecvAt: null }
+  if (rows.length < 2) return { recvKnown: false, lastRecvAt: null, firstRowAt: null }
   let lastRecvAt = null
   for (let k = 1; k < rows.length; k++) {
-    if (toNum(rows[k].receive_count) !== toNum(rows[k - 1].receive_count)) lastRecvAt = rows[k].measured_at
+    if (toNum(rows[k].receive_count) > toNum(rows[k - 1].receive_count)) lastRecvAt = rows[k].measured_at
   }
-  return { recvKnown: true, lastRecvAt } // lastRecvAt=null 이면 조회 구간(오늘) 내내 응답 없음
+  // lastRecvAt=null 이면 조회 구간 내내 응답 없음 → 구간 첫 행(firstRowAt) 이전부터 끊긴 것
+  return { recvKnown: true, lastRecvAt, firstRowAt: rows[0].measured_at }
 }
 
 async function todayBaselineWh(plantId, deviceId) {
@@ -412,8 +429,9 @@ async function todayBaselineWh(plantId, deviceId) {
 
 // 인버터 통신 두절 판단. RTU 는 매분 요청(send_count)을 보내고 응답이 오면 receive_count 가 오른다.
 // 응답이 끊겨도 행은 계속 기록되고(is_stale=false) 값은 끊기기 직전 값을 몇 분 유지하다 0 으로 채워지므로,
-// 값이나 행 시각이 아니라 receive_count 가 멈춘 것으로 판단한다. (실서버 seq 869: 09:08 이후 3569 에서 정지)
-const commState = new Map() // deviceId → { receive, lastRecvAt }
+// 값이나 행 시각이 아니라 receive_count 가 멈춘 것으로 판단한다. (실서버 seq 869: 9/30 09:08 이후 3569 에서 정지)
+// 매일 00:09 경 카운트 리셋(감소)은 응답이 아니다.
+const commState = new Map() // deviceId → { receive, lastRecvAt, silentBefore }
 const NO_RESPONSE_MINUTES = 3
 
 function trackComm(d, base) {
@@ -421,12 +439,19 @@ function trackComm(d, base) {
   if (recv == null || !d.device_id) return null
   const prev = commState.get(d.device_id)
   let lastRecvAt
-  if (prev) lastRecvAt = recv !== prev.receive ? d.measured_at : prev.lastRecvAt
-  else if (base?.recvKnown) lastRecvAt = base.lastRecvAt
-  else return null // 비교 기준(직전 폴링·오늘 이력)이 없으면 판단 보류
-  commState.set(d.device_id, { receive: recv, lastRecvAt })
+  let silentBefore = null
+  if (prev) {
+    lastRecvAt = recv > prev.receive ? d.measured_at : prev.lastRecvAt
+    silentBefore = prev.silentBefore
+  } else if (base?.recvKnown) {
+    lastRecvAt = base.lastRecvAt
+    silentBefore = base.firstRowAt
+  } else {
+    return null // 비교 기준(직전 폴링·오늘 이력)이 없으면 판단 보류
+  }
+  commState.set(d.device_id, { receive: recv, lastRecvAt, silentBefore })
   const silentMin = lastRecvAt ? (new Date(d.measured_at) - new Date(lastRecvAt)) / 60000 : Infinity
-  return { noResponse: silentMin > NO_RESPONSE_MINUTES, lastRecvAt }
+  return { noResponse: silentMin > NO_RESPONSE_MINUTES, lastRecvAt, silentBefore: lastRecvAt ? null : silentBefore }
 }
 
 // 선택 발전소(plant_id)의 실시간 현황을 대시보드용으로 반환.
@@ -454,13 +479,22 @@ export async function apiPlantLive(plantId) {
   const today = live.inverters.map((iv, i) => {
     const base = bases[i]
     if (iv.energyKwh == null || base?.wh == null) return null
-    return { kwh: Math.max(0, iv.energyKwh - base.wh / 1000), partial: base.partial }
+    // 통신 두절 인버터: 오늘 응답이 한 번도 없었으면 발전량을 알 수 없다(누적값이 멈춰 0 으로 계산되지만 측정값이 아님).
+    // 오늘 응답이 있었으면 끊기기 전까지 받은 만큼만(하한값).
+    if (iv.noResponse && !iv.lastRecvAt) return null
+    return { kwh: Math.max(0, iv.energyKwh - base.wh / 1000), partial: base.partial || !!iv.noResponse }
   })
   today.forEach((t, i) => {
     live.inverters[i].todayKwh = t ? t.kwh : null
   })
   live.todayGenKwh = sumOf(today.map((t) => (t ? t.kwh : null)))
-  live.todayGenPartial = today.some((t) => t?.partial)
+  live.todayGenPartial = today.some((t) => t?.partial) || today.some((t) => t == null)
+  // 두절 인버터가 마지막으로 응답한 시각 중 가장 이른 것 → '금일 발전량 (09:08까지)' 표기용
+  live.todayGenUntilAt =
+    live.inverters
+      .filter((iv) => iv.noResponse && iv.lastRecvAt)
+      .map((iv) => iv.lastRecvAt)
+      .sort((a, b) => new Date(a) - new Date(b))[0] ?? null
   return live
 }
 
