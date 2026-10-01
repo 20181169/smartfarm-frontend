@@ -179,11 +179,6 @@ function whenLabel(iso) {
   return `${d.getMonth() + 1}/${d.getDate()} ${p(d.getHours())}:${p(d.getMinutes())}`
 }
 
-// '…이전부터 응답 없음' 의 기준(조회한 이력의 첫 행). 오늘 0시대면 '오늘 0시'.
-function silentBeforeLabel(iso) {
-  const d = new Date(iso)
-  return d.toDateString() === new Date().toDateString() && d.getHours() === 0 ? '오늘 0시' : whenLabel(iso)
-}
 
 const toNum = (v) => {
   if (v == null || v === '') return null
@@ -334,12 +329,9 @@ export function mapLatestToLive(invItems = [], envItems = [], comm = []) {
     const c = comm[i]
     iv.noResponse = c ? c.noResponse : null // null = 판단 불가(송수신 카운트·이력 없음)
     iv.lastRecvAt = c ? c.lastRecvAt : null
-    // 응답이 끊겨도 RTU 는 행을 계속 기록하므로 행 시각은 '최종 통신'이 아니다 → 마지막 응답 시각으로 표시
-    if (c?.noResponse) {
-      iv.comm = c.lastRecvAt
-        ? `${whenLabel(c.lastRecvAt)} 이후 응답 없음`
-        : c.silentBefore ? `${silentBeforeLabel(c.silentBefore)} 이전부터 응답 없음` : '응답 없음'
-    }
+    // 응답이 끊겨도 RTU 는 행을 계속 기록하므로 행 시각은 '최종 통신'이 아니다 → 마지막 응답 시각으로 표시.
+    // 마지막 응답이 조회한 이력 밖이면 시각을 추정하지 않고 '응답 없음'만 표시한다.
+    if (c?.noResponse) iv.comm = c.lastRecvAt ? `${whenLabel(c.lastRecvAt)} 이후 응답 없음` : '응답 없음'
     return iv
   })
   // 통신 두절 인버터의 값은 측정값이 아니다(끊기기 직전 값을 몇 분 유지하다 0 으로 채워짐) → 출력 합계에서 제외.
@@ -396,17 +388,17 @@ function kstToday() {
 
 // history 행에서 receive_count 가 마지막으로 오른(=인버터가 응답한) 시각. 카운트가 2행 미만이면 판단 불가.
 // RTU 는 송수신 카운트를 매일 00:09 경 0 으로 리셋하므로(10/1 실측: 3569→0) 감소는 응답으로 보지 않는다.
+// lastRecvAt=null 이면 조회한 이력 내내 응답 없음(언제부터인지는 모름).
 function lastReceiveFromRows(items) {
   const rows = items
     .filter((d) => toNum(d.receive_count) != null)
     .sort((a, b) => new Date(a.measured_at) - new Date(b.measured_at))
-  if (rows.length < 2) return { recvKnown: false, lastRecvAt: null, firstRowAt: null }
+  if (rows.length < 2) return { recvKnown: false, lastRecvAt: null }
   let lastRecvAt = null
   for (let k = 1; k < rows.length; k++) {
     if (toNum(rows[k].receive_count) > toNum(rows[k - 1].receive_count)) lastRecvAt = rows[k].measured_at
   }
-  // lastRecvAt=null 이면 조회 구간 내내 응답 없음 → 구간 첫 행(firstRowAt) 이전부터 끊긴 것
-  return { recvKnown: true, lastRecvAt, firstRowAt: rows[0].measured_at }
+  return { recvKnown: true, lastRecvAt }
 }
 
 async function todayBaselineWh(plantId, deviceId) {
@@ -434,7 +426,7 @@ async function todayBaselineWh(plantId, deviceId) {
 // 응답이 끊겨도 행은 계속 기록되고(is_stale=false) 값은 끊기기 직전 값을 몇 분 유지하다 0 으로 채워지므로,
 // 값이나 행 시각이 아니라 receive_count 가 멈춘 것으로 판단한다. (실서버 seq 869: 9/30 09:08 이후 3569 에서 정지)
 // 매일 00:09 경 카운트 리셋(감소)은 응답이 아니다.
-const commState = new Map() // deviceId → { receive, lastRecvAt, silentBefore }
+const commState = new Map() // deviceId → { receive, lastRecvAt }
 const NO_RESPONSE_MINUTES = 3
 
 function trackComm(d, base) {
@@ -442,19 +434,12 @@ function trackComm(d, base) {
   if (recv == null || !d.device_id) return null
   const prev = commState.get(d.device_id)
   let lastRecvAt
-  let silentBefore = null
-  if (prev) {
-    lastRecvAt = recv > prev.receive ? d.measured_at : prev.lastRecvAt
-    silentBefore = prev.silentBefore
-  } else if (base?.recvKnown) {
-    lastRecvAt = base.lastRecvAt
-    silentBefore = base.firstRowAt
-  } else {
-    return null // 비교 기준(직전 폴링·오늘 이력)이 없으면 판단 보류
-  }
-  commState.set(d.device_id, { receive: recv, lastRecvAt, silentBefore })
+  if (prev) lastRecvAt = recv > prev.receive ? d.measured_at : prev.lastRecvAt
+  else if (base?.recvKnown) lastRecvAt = base.lastRecvAt
+  else return null // 비교 기준(직전 폴링·오늘 이력)이 없으면 판단 보류
+  commState.set(d.device_id, { receive: recv, lastRecvAt })
   const silentMin = lastRecvAt ? (new Date(d.measured_at) - new Date(lastRecvAt)) / 60000 : Infinity
-  return { noResponse: silentMin > NO_RESPONSE_MINUTES, lastRecvAt, silentBefore: lastRecvAt ? null : silentBefore }
+  return { noResponse: silentMin > NO_RESPONSE_MINUTES, lastRecvAt }
 }
 
 // 선택 발전소(plant_id)의 실시간 현황을 대시보드용으로 반환.

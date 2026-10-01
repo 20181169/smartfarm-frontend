@@ -78,8 +78,8 @@ export function liveStatus(plant, weather, now = new Date()) {
       .filter(Boolean)
       .map((t) => new Date(t))
       .sort((a, b) => a - b)[0]
-    // 시작 시각을 모르면(오늘 이력 내내 무응답) '오늘 0시 이전부터'
-    const since = firstAt ? `${timeLabel(firstAt, now)} 이후` : '오늘 0시 이전부터'
+    // 마지막 응답 시각을 알면 그 시각과 경과 시간, 모르면(조회한 이력 내내 무응답) 시각을 추정하지 않는다
+    const since = firstAt ? ` (${timeLabel(firstAt, now)} 이후 · ${durationLabel(now - firstAt)}째)` : ''
     const startedPhase = firstAt ? dayPhase(weather?.sunrise, weather?.sunset, firstAt) : null
     // 야간에 끊겨 아직 야간이면 경보하지 않는다(일부 인버터는 야간에 통신을 멈춤 — MRT 도 야간엔 두절 알람 해제).
     // 주간에 끊긴 두절은 저녁·야간이 돼도 계속 경보한다. 시작 시각을 모르면(오늘 내내 무응답) 새벽에만 보류.
@@ -88,7 +88,7 @@ export function liveStatus(plant, weather, now = new Date()) {
     return {
       level: nightOnly ? 'ok' : 'warn',
       badge: nightOnly ? '야간 무응답' : '통신 두절',
-      subject: `인버터 ${lost.map(invLabel).join(', ')} 통신 두절 (${since} 응답 없음${firstAt ? ` · ${durationLabel(now - firstAt)}째` : ''})`,
+      subject: `인버터 ${lost.map(invLabel).join(', ')} 응답 없음${since}`,
       desc:
         'RTU는 계속 요청을 보내지만 인버터 응답이 없어 현재 출력·발전량을 알 수 없습니다(0 이 아니라 확인 불가). ' +
         '발전이 멈춘 것인지 통신만 끊긴 것인지는 데이터로 구분되지 않습니다. ' +
