@@ -66,7 +66,9 @@ async function request(path, { method = 'GET', body, auth = true, signal } = {})
       setToken(null)
       globalThis.dispatchEvent?.(new Event(AUTH_EXPIRED_EVENT))
     }
-    const msg = json?.message || `요청 실패 (${res.status})`
+    // 표준 봉투는 message, 텔레메트리·대시보드 API(FastAPI HTTPException)는 detail 로 사유를 준다
+    const detail = typeof json?.detail === 'string' ? json.detail : null
+    const msg = json?.message || detail || `요청 실패 (${res.status})`
     throw new ApiError(msg, res.status, json?.error_code)
   }
 
@@ -341,8 +343,9 @@ export function mapLatestToLive(invItems = [], envItems = [], comm = []) {
     return iv
   })
   // 통신 두절 인버터의 값은 측정값이 아니다(끊기기 직전 값을 몇 분 유지하다 0 으로 채워짐) → 출력 합계에서 제외.
-  // 전부 두절이면 현재 출력은 알 수 없음(null → '-').
-  const responding = inverters.filter((iv) => !iv.noResponse)
+  // 송수신 카운트로 판단할 수 없는 화면(발전소비교 등)에서도 값이 전부 0(계통 전압·주파수까지 0)이면 같은 상태로 본다.
+  // 해당 인버터뿐이면 현재 출력은 알 수 없음(null → '-').
+  const responding = inverters.filter((iv) => !iv.noResponse && !iv.noMeasurement)
   const currentPowerKw = sumOf(responding.map((iv) => iv.powerKw))
   const dcPowerKw = sumOf(responding.map((iv) => iv.dcPowerKw))
   const environment = mapEnvironment(envItems)

@@ -3,12 +3,20 @@ import { PLANTS, DEFAULT_PLANT_ID, getPlant } from '../data/plants'
 import { fetchWeather } from '../lib/weather'
 import { smpWon, recWon } from '../lib/format'
 import {
-  apiLogin, apiGetMe, apiGetPlants, apiPlantLive, apiGetRoles, mapPlant, setToken, getToken, AUTH_EXPIRED_EVENT,
+  apiLogin, apiGetMe, apiGetPlants, apiPlantLive, apiGetRoles, apiGetDevices, mapPlant, setToken, getToken,
+  AUTH_EXPIRED_EVENT,
 } from '../lib/api'
 import { AppContext } from './useApp'
 
 // 이 레벨 이하(SYS_ADMIN~INSPECTOR)만 영농이행 감독 기능 접근. 70 운영자·80 조회전용은 제외.
 const SUPERVISOR_MAX_LEVEL = 60
+
+// 인버터 모델 표기: 장비 목록(관리자 등 device:read 권한)이 있으면 실제 모델, 없으면 실시간 수신 대수만
+function inverterModelLabel(devices, liveCount) {
+  const models = (devices || []).filter((d) => d.device_type === 'inverter').map((d) => d.model || '모델 미등록')
+  if (models.length) return `${[...new Set(models)].join(', ')} (${models.length}대)`
+  return liveCount ? `${liveCount}대 (모델 정보 없음)` : null
+}
 
 // role_id → 역할 정보(role_code/role_name/level) 해석. 실패해도 로그인은 유지.
 async function resolveRole(me) {
@@ -72,6 +80,7 @@ export function AppProvider({ children }) {
   const [backendPlants, setBackendPlants] = useState([]) // 실발전소 목록(mapPlant 적용)
   const [live, setLive] = useState(null) // 선택 발전소 실시간 현황
   const [liveState, setLiveState] = useState('idle') // idle | loading | ok | empty(계측 데이터 없음) | error
+  const [devices, setDevices] = useState(null) // 선택 발전소 장비 목록(조회 권한 없으면 null — 뷰어 403)
 
   // 선택 가능한 발전소: 연결되면 백엔드 실발전소, 아니면 목(데모).
   const backendDisplay = useMemo(() => backendPlants.map(toDisplayPlant), [backendPlants])
@@ -165,6 +174,21 @@ export function AppProvider({ children }) {
     }
   }, [connected, isBackendPlant, plantId])
 
+  // 선택 발전소 장비 목록(인버터 모델 표기용). 권한이 없거나 실패하면 null.
+  useEffect(() => {
+    if (!connected || !isBackendPlant) {
+      setDevices(null)
+      return
+    }
+    let alive = true
+    apiGetDevices(plantId)
+      .then((d) => alive && setDevices(d?.items || []))
+      .catch(() => alive && setDevices(null))
+    return () => {
+      alive = false
+    }
+  }, [connected, isBackendPlant, plantId])
+
   // Open-Meteo 날씨 (백엔드 환경센서가 없을 때 폴백). 백엔드 발전소는 등록 좌표 기준.
   const plantLat = basePlant?.lat ?? null
   const plantLng = basePlant?.lng ?? null
@@ -187,7 +211,10 @@ export function AppProvider({ children }) {
   // 백엔드가 주는 값은 0이어도 그대로 노출하고(실측), 미제공 값(PEAK·인버터 온도·시세·이력)은
   // 인버터는 null('-' 표시), 발전소 단위는 목 템플릿으로 폴백한다.
   const plant = useMemo(() => {
-    if (!live || !live.hasData) return basePlant
+    if (!live || !live.hasData) {
+      // 계측 데이터가 없는 백엔드 발전소도 장비 목록이 있으면 인버터 모델은 보여준다
+      return basePlant?._backend && devices ? { ...basePlant, inverterModel: inverterModelLabel(devices, 0) } : basePlant
+    }
     const round = (v, d = 1) => (v == null ? null : Math.round(v * 10 ** d) / 10 ** d)
     const withUnit = (v, unit, d = 1) => (v == null ? '-' : `${v.toFixed(d)} ${unit}`)
     const joinPhases = (vals) =>
@@ -249,7 +276,7 @@ export function AppProvider({ children }) {
       conversionEff: live.conversionEff, // AC/DC(%) — 계산 불가면 null
       totalEnergyKwh: live.totalEnergyKwh,
       inverters: inv,
-      inverterModel: inv.length ? `${inv.length}대 (모델 정보 없음)` : null,
+      inverterModel: inverterModelLabel(devices, inv.length),
       soilMoisture: env && env.soilMoisture != null ? `${env.soilMoisture} %` : basePlant.soilMoisture,
       soilTemp: env && env.soilTemp != null ? `${env.soilTemp} °C` : basePlant.soilTemp,
       cardTemp: env?.airTemp != null ? `${env.airTemp.toFixed(1)}°C` : basePlant.cardTemp,
@@ -263,7 +290,7 @@ export function AppProvider({ children }) {
       _todayGenPartial: !!live.todayGenPartial,
       _todayGenUntil: live.todayGenUntilAt, // 통신 두절 전 마지막 응답 시각 → '금일 발전량 (09:08까지)'
     }
-  }, [basePlant, live])
+  }, [basePlant, live, devices])
 
   // 날씨: 응답 중인 백엔드 환경센서 값을 우선, 센서가 없으면 Open-Meteo.
   // 기온=외기온도 센서(없으면 기상센서), 모듈온도=표면온도 센서, 경사/수평 일사량=센서 종류(sun_type)별 실측값.

@@ -12,6 +12,7 @@ const DEVICE_TYPE_LABEL = {
   weather_station: '기상관측',
   camera: '카메라',
   rtu: 'RTU',
+  relay: '릴레이',
 }
 const DEVICE_STATUS_BADGE = {
   active: { cls: 'badge-active', label: '운영' },

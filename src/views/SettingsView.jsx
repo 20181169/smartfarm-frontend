@@ -14,8 +14,8 @@ export default function SettingsView() {
       </div>
 
       <div className="grid grid-2">
-        {/* 나의 설정 정보 */}
-        <div className="card">
+        {/* 나의 설정 정보 — 입력칸은 defaultValue 라 로그인 정보가 나중에 들어오면(세션 복원) 다시 그려야 반영된다 */}
+        <div className="card" key={apiUser ? user.email : 'demo'}>
           <div className="card-header"><span className="card-title"><User /> 나의 설정 정보</span></div>
           <div className="field"><label>이름</label><input defaultValue={apiUser ? user.name : '김진성'} /></div>
           <div className="field"><label>연락처</label><input defaultValue={apiUser ? '' : '010 3574 1072'} placeholder="010-0000-0000" /></div>

@@ -168,7 +168,10 @@ export default function OversightView() {
             : <span className="badge badge-neutral" style={{ fontSize: 11 }}>데모 데이터</span>}
         </div>
         <div className="view-sub">
-          {summary.authority} · 리포트 기간 {summary.reportingPeriod} · 생성 {summary.generatedAt}
+          {/* 백엔드 모드에선 데모 관할·리포트 기간(2027년 예시)을 보여주지 않는다 */}
+          {isBackend
+            ? `백엔드 실발전소 ${beState === 'ok' ? `${realPlants.length}곳` : ''} · 영농이행 판정·정기점검 API 미제공`
+            : `${summary.authority} · 리포트 기간 ${summary.reportingPeriod} · 생성 ${summary.generatedAt}`}
         </div>
       </div>
 
