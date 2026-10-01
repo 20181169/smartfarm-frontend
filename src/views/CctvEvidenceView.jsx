@@ -17,6 +17,10 @@ function capture(video) {
   return new Promise((resolve, reject) => canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('프레임을 읽을 수 없습니다.')), 'image/jpeg', 0.9))
 }
 
+// 비전 분석 API 가 배포되지 않은 서버(404)면 'Not Found' 대신 원인을 안내
+const visionMessage = (e) =>
+  e?.status === 404 ? '이 서버에는 비전 분석 API(/vision)가 아직 배포되지 않았습니다.' : e.message
+
 function seekVideo(video, time) {
   return new Promise((resolve, reject) => {
     if (!video || !Number.isFinite(video.duration)) {
@@ -86,7 +90,7 @@ export default function CctvEvidenceView() {
     setCameras([]); setCameraId(''); setCameraError('')
     if (plantId && mode === 'camera') apiVisionCameras(plantId, abort.signal).then(data => {
       if (!abort.signal.aborted) { setCameras(data.items || []); setCameraId(data.items?.[0]?.camera_id || '') }
-    }).catch(e => { if (!abort.signal.aborted) setCameraError(e.message) })
+    }).catch(e => { if (!abort.signal.aborted) setCameraError(visionMessage(e)) })
     return () => abort.abort()
   }, [plantId, mode])
 
@@ -115,7 +119,7 @@ export default function CctvEvidenceView() {
       return true
     } catch (e) {
       if (version === sequence.current) {
-        setError(e.name === 'AbortError' ? '분석 시간이 초과되었습니다. 모델 준비 상태를 확인하고 다시 시도하세요.' : e.message)
+        setError(e.name === 'AbortError' ? '분석 시간이 초과되었습니다. 모델 준비 상태를 확인하고 다시 시도하세요.' : visionMessage(e))
         runningRef.current = false
         setRunning(false)
       }
