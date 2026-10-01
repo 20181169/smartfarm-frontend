@@ -2,6 +2,7 @@ name: Deploy Frontend
 
 # main/master 에 push 하면 빌드 후 서버로 자동 배포합니다.
 # (수동 실행도 가능: Actions 탭 → Run workflow)
+# 필요한 Secrets: SSH_HOST, SSH_USER, SSH_PRIVATE_KEY (Settings → Secrets and variables → Actions)
 on:
   push:
     branches: [main, master]
@@ -26,13 +27,33 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Copy dist to server
+      # 서버 nginx 컨테이너(smartfarm_platform/docker-compose.yml)가 바인드 마운트로 서빙하는 폴더:
+      #   /root/projects/smartfarm-frontend/dist -> /usr/share/nginx/html
+      # 이 폴더를 지웠다 새로 만들면 실행 중인 nginx 는 지워진 옛 폴더를 계속 보므로(빈 화면),
+      # 임시 폴더로 올린 뒤 폴더는 그대로 두고 내용만 교체한다.
+      - name: Upload dist to server (staging)
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           source: "dist/*"
-          target: "~/projects/smartfarm_frontend/dist"
+          target: "/root/projects/smartfarm-frontend/dist_upload"
           strip_components: 1
-          rm: true # 배포 전 기존 파일 정리(오래된 해시 에셋 제거)
+          rm: true # 임시 폴더만 비우고 새로 올림
+
+      - name: Replace served files
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            set -e
+            cd /root/projects/smartfarm-frontend
+            test -f dist_upload/index.html   # 업로드가 정상일 때만 교체
+            mkdir -p dist
+            find dist -mindepth 1 -delete    # 폴더(마운트)는 유지하고 내용만 비움
+            cp -a dist_upload/. dist/
+            rm -rf dist_upload
+            ls dist
