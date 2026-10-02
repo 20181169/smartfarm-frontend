@@ -62,8 +62,8 @@ export default function TopHeader({ onToggleNav, onOpenAuth }) {
             <span className="pill hide-sm" title={user.roleCode || ''}>
               {user.roleName || (user.role === '발전사업자' ? '사업자' : '관리자')} · {user.name}
             </span>
-            <button className="btn-ghost" onClick={logout}>
-              <LogOut /> 로그아웃
+            <button className="btn-ghost" onClick={logout} title="로그아웃" aria-label="로그아웃">
+              <LogOut /> <span className="btn-label">로그아웃</span>
             </button>
           </>
         ) : (

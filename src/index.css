@@ -141,11 +141,12 @@ input, select, textarea { font-family: inherit; }
   font-weight: 700;
   cursor: pointer;
   max-width: 260px;
+  min-width: 0; /* 좁은 화면에서 오른쪽 버튼과 겹치지 않고 줄어들도록 */
   text-overflow: ellipsis;
 }
 .plant-select:disabled { opacity: 0.6; cursor: not-allowed; }
 
-.header-actions { display: flex; align-items: center; gap: 8px; }
+.header-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 
 .pill {
   display: inline-flex; align-items: center; gap: 6px;
@@ -252,9 +253,11 @@ input, select, textarea { font-family: inherit; }
 }
 .card-header {
   display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  flex-wrap: wrap; /* 공간이 부족하면 제목을 찌그러뜨리지 않고 버튼·범례를 다음 줄로 */
   padding-bottom: 12px; margin-bottom: 14px;
   border-bottom: 1px solid var(--border);
 }
+.card-header > div { flex-wrap: wrap; }
 .card-title { font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
 .card-title svg { width: 17px; height: 17px; color: var(--sage); }
 
@@ -345,7 +348,7 @@ table.data td strong, table.data th strong { color: var(--text); font-weight: 80
 }
 .segmented button.active { background: var(--bg-card); color: var(--sage-strong); box-shadow: var(--shadow-sm); }
 
-.chip-toggle { display: inline-flex; gap: 6px; }
+.chip-toggle { display: inline-flex; flex-wrap: wrap; gap: 6px; }
 .chip-toggle button {
   border: 1px solid var(--border); background: var(--bg-card); color: var(--text-2);
   padding: 5px 12px; border-radius: var(--radius-pill); font-size: 11.5px; font-weight: 700; cursor: pointer;
@@ -459,8 +462,19 @@ table.data td strong, table.data th strong { color: var(--text); font-weight: 80
 }
 
 @media (max-width: 520px) {
+  /* 휴대폰 폭: 헤더 여백을 줄이고 로그아웃은 아이콘만 — 발전소 선택 상자에 자리를 준다 */
+  .top-header { padding: 0 12px; gap: 8px; }
+  .brand { gap: 8px; }
+  .header-actions { gap: 6px; }
+  .plant-select { padding: 7px 24px 7px 8px; background-position: right 6px center; }
+  .header-actions .icon-btn { padding: 6px 9px; }
+  .btn-label { display: none; }
   .stat-tiles { grid-template-columns: 1fr; }
   .cal-cell { min-height: 54px; }
   .cal-cell .d-gen { font-size: 11px; }
   .weather-metrics { font-size: 12px; gap: 6px 14px; }
+}
+
+@media (max-width: 400px) {
+  .brand img { display: none; }
 }
