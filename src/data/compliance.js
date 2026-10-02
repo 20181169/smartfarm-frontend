@@ -340,6 +340,12 @@ export const AGRI_ADMIN_DATA = {
     { id: '12142', name: '[12142] [춘천] 소양강 영농', issue: '정상 이행 (관수 작업 진행)', level: '정상', badge: 'badge-low' },
   ],
 
+  // 현장 점검 요청 대상 (통합 버전 '현장 점검 및 행정조치 관리' 화면과 동일)
+  inspectionTargets: [
+    { id: '12140', name: '[12140] 온누리5,6', permitNo: '2027-AGPV-12140', reason: '동측 경계 미경작 1.5% 관찰', level: '관찰', badge: 'badge-warning', schedule: '2027.04.10 예정', action: '시정명령 발송' },
+    { id: '12139', name: '[12139] 온누리3,4', permitNo: '2027-AGPV-12139', reason: '북측 경계 미경작 2.1% 관찰', level: '관찰', badge: 'badge-warning', schedule: '2027.04.12 예정', action: '추가증빙 요청' },
+  ],
+
   recentReports: [
     { id: '12139', name: '[12139] [원주] 온누리3,4 (200kW)', crop: '콩 / 감자', events: '27건', area: '85%', result: '관찰 필요', badge: 'badge-warning' },
     { id: '12138', name: '[12138] [원주] 온누리1,2 (200kW)', crop: '옥수수 / 배추', events: '24건', area: '92%', result: '정상 이행', badge: 'badge-success' },

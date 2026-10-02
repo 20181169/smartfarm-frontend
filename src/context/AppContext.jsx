@@ -6,10 +6,8 @@ import {
   apiLogin, apiGetMe, apiGetPlants, apiPlantLive, apiGetRoles, apiGetDevices, mapPlant, setToken, getToken,
   AUTH_EXPIRED_EVENT,
 } from '../lib/api'
+import { menuRoleOf, isSupervisorRole } from '../lib/roles'
 import { AppContext } from './useApp'
-
-// 이 레벨 이하(SYS_ADMIN~INSPECTOR)만 영농이행 감독 기능 접근. 70 운영자·80 조회전용은 제외.
-const SUPERVISOR_MAX_LEVEL = 60
 
 // 인버터 모델 표기: 장비 목록(관리자 등 device:read 권한)이 있으면 실제 모델, 없으면 실시간 수신 대수만
 function inverterModelLabel(devices, liveCount) {
@@ -387,11 +385,8 @@ export function AppProvider({ children }) {
   }, [logout])
   const clearSessionExpired = useCallback(() => setSessionExpired(false), [])
 
-  // 역할 메뉴 그룹: 실계정은 level로, 데모는 선택한 demoRole로, 미로그인은 owner(발전사업자 화면).
-  const menuRole =
-    user?.level != null
-      ? (user.level <= SUPERVISOR_MAX_LEVEL ? 'supervisor' : 'owner')
-      : user?.demoRole || 'owner'
+  // 역할 메뉴 그룹: admin(시스템 관리자) | official(지자체 감독관) | owner(발전사업자)
+  const menuRole = menuRoleOf(user)
 
   const value = {
     plantId,
@@ -405,8 +400,8 @@ export function AppProvider({ children }) {
     menuRole,
     isLive: !!(plant && plant._live),
     liveState, // 백엔드 발전소 계측 조회 상태: loading | ok | empty(데이터 없음) | error
-    // 감독 권한 = 메뉴 그룹이 supervisor (실계정 level≤60, 또는 데모에서 감독/관리자 선택).
-    isSupervisor: menuRole === 'supervisor',
+    // 감독 권한 = 시스템 관리자 또는 지자체 감독관 (실계정 level≤60, 또는 데모에서 감독관/관리자 선택).
+    isSupervisor: isSupervisorRole(menuRole),
     selectPlant,
     toggleTheme,
     login,

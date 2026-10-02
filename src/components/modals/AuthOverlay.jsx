@@ -2,15 +2,16 @@ import { useState } from 'react'
 import { X, Wifi, WifiOff } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useApp } from '../../context/useApp'
+import { menuRoleOf, isSupervisorRole } from '../../lib/roles'
 import logo from '/logo.png'
 
 // 로그인 역할 선택 — 통합 버전과 동일한 역할 구성.
-// group: 'owner'(발전사업자) | 'supervisor'(감독관·관리자). email 은 실로그인 시 프리필.
+// group(메뉴 역할): 'owner'(발전사업자) | 'official'(지자체 감독관) | 'admin'(최고 관리자). email 은 실로그인 시 프리필.
 const ROLES = [
   { key: 'owner34', label: '온누리3,4 소유주', sub: '발전소 사업자', group: 'owner', name: '온누리3,4 소유주', email: 'viewer@example.com', desc: '원주 온누리3,4 소유 발전사업자 (본인 발전소 전용 조회 권한)' },
   { key: 'owner12', label: '온누리1,2 소유주', sub: '발전소 사업자', group: 'owner', name: '온누리1,2 소유주', email: 'viewer@example.com', desc: '원주 온누리1,2 소유 발전사업자 (본인 발전소 전용 조회 권한)' },
-  { key: 'inspector', label: '지자체 감독관', sub: '영농행정 관리자', group: 'supervisor', name: '지자체 감독관', email: 'admin@example.com', desc: '강원특별자치도 영농형 태양광 영농이행 감독관' },
-  { key: 'admin', label: '최고 관리자', sub: '전체 시스템 풀관제', group: 'supervisor', name: '최고 관리자', email: 'admin@example.com', desc: '전체 시스템 통합 관리자 (발전 성능 & 영농이행 풀 관제)' },
+  { key: 'inspector', label: '지자체 감독관', sub: '영농행정 관리자', group: 'official', name: '지자체 감독관', email: 'admin@example.com', desc: '강원특별자치도 영농형 태양광 영농이행 감독관' },
+  { key: 'admin', label: '최고 관리자', sub: '전체 시스템 풀관제', group: 'admin', name: '최고 관리자', email: 'admin@example.com', desc: '전체 시스템 통합 관리자 (발전 성능 & 영농이행 풀 관제)' },
 ]
 
 export default function AuthOverlay({ onClose, notice = '' }) {
@@ -24,7 +25,8 @@ export default function AuthOverlay({ onClose, notice = '' }) {
   const [error, setError] = useState('')
 
   const pickRole = (r) => { setRoleKey(r.key); setEmail(r.email); setError('') }
-  const goHome = (supervisor) => navigate(supervisor ? '/oversight' : '/')
+  // 관리자·감독관은 종합대시보드, 발전사업자는 현재상태로 시작 (통합 버전과 동일)
+  const goHome = (menuRole) => navigate(isSupervisorRole(menuRole) ? '/oversight' : '/')
 
   const doLogin = async (e) => {
     e.preventDefault()
@@ -32,7 +34,7 @@ export default function AuthOverlay({ onClose, notice = '' }) {
     setLoading(true)
     try {
       const u = await apiSignIn(email, pw)
-      goHome(u?.level != null && u.level <= 60)
+      goHome(menuRoleOf(u))
       onClose()
     } catch (err) {
       setError(
@@ -47,7 +49,7 @@ export default function AuthOverlay({ onClose, notice = '' }) {
 
   const doDemo = () => {
     login({ name: role.name, role: role.group === 'owner' ? '발전사업자' : '관리자', source: 'demo', demoRole: role.group })
-    goHome(role.group === 'supervisor')
+    goHome(role.group)
     onClose()
   }
 
