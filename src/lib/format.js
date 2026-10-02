@@ -4,8 +4,9 @@ import { RPS_PRICE } from '../data/market'
 export const nf = (n) => Number(n).toLocaleString('ko-KR')
 
 // 발전량(kWh) → SMP·REC 수익(원). REC 는 1MWh 당 가격이라 /1000.
-export const smpWon = (kwh) => kwh * RPS_PRICE.smp
-export const recWon = (kwh) => (kwh / 1000) * RPS_PRICE.rec * RPS_PRICE.weight
+// price: { smp, rec, weight } — KPX 시세가 있으면 그 값(AppContext market.price), 없으면 데모 단가.
+export const smpWon = (kwh, price = RPS_PRICE) => kwh * price.smp
+export const recWon = (kwh, price = RPS_PRICE) => (kwh / 1000) * price.rec * price.weight
 
 // 발전 효율 (%) = 현재출력 / 설비용량. 현재출력을 알 수 없으면(통신 두절 등) '-'
 export function efficiency(plant) {

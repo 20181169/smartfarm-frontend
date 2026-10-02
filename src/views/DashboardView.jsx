@@ -8,11 +8,31 @@ import { useApp } from '../context/useApp'
 import { efficiency, genRatio, co2Kg, assetRevenue, nf, smpWon, recWon } from '../lib/format'
 import { liveStatus, INV_STATE_BADGE } from '../lib/liveStatus'
 import { YEARLY_RECORDS, REC_MARKET, SMP_MARKET, RPS_PRICE } from '../data/market'
+import { ymdLabel } from '../lib/kpx'
 import {
   HourlyGenChart, MonthlyTrendChart, YearlyGenChart, RecMarketChart, SmpMarketChart,
 } from '../components/charts'
 
 const yearlyTotal = YEARLY_RECORDS.reduce((s, r) => s + r.genKwh, 0)
+
+// 시세 변동 표기: ▲ 1,200원 (+1.63%) / 비교 대상이 없으면 '-'
+function ChangeText({ change, pct, digits = 0, suffix = '' }) {
+  if (change == null) return <span className="text-muted" style={{ fontWeight: 800, fontSize: 11.5 }}>-</span>
+  const up = change >= 0
+  const abs = Math.abs(change)
+  return (
+    <span className={up ? 'text-emerald' : 'text-terra'} style={{ fontWeight: 800, fontSize: 11.5 }}>
+      {up ? '▲' : '▼'} {digits ? abs.toFixed(digits) : nf(Math.round(abs))}원
+      {pct != null && ` (${up ? '+' : '-'}${Math.abs(pct).toFixed(2)}%)`}{suffix}
+    </span>
+  )
+}
+
+// KPX 시세를 못 받았을 때의 배지 — 사유(키 미설정·조회 실패)는 마우스를 올리면 보인다
+function DemoMarketBadge({ market }) {
+  const why = market.status === 'nokey' ? '공공데이터포털 인증키(VITE_DATA_GO_KR_KEY) 미설정' : market.error || '시세 불러오는 중'
+  return <span className="badge badge-neutral" title={why}>데모 시세</span>
+}
 
 // '… 발전소' 로 끝나는 이름에 '발전소'가 또 붙지 않게
 const titleOf = (name) => `${name}${/발전소$/.test(name) ? '' : ' 발전소'} 현황`
@@ -169,7 +189,7 @@ function NoDataDashboard({ plant, weather, liveState }) {
 }
 
 export default function DashboardView() {
-  const { plant, weather, isLive, liveState } = useApp()
+  const { plant, weather, isLive, liveState, market } = useApp()
   const navigate = useNavigate()
 
   if (plant._backend && !isLive) {
@@ -188,8 +208,15 @@ export default function DashboardView() {
     : gen == null ? '금일 발전량 (확인 불가)'
       : plant._todayGenUntil ? `금일 발전량 (${hhmm(plant._todayGenUntil)}까지 수신분)` : '금일 발전량'
 
-  // RPS 카드: 실연동이면 금일 실측 발전량 × 표기 단가, 이력이 필요한 월·누적 값은 '-'
-  const won = (f) => (gen == null ? '-' : `${nf(Math.round(f(gen)))} 원`)
+  // 수익 단가: 실연동이면 KPX 시세(SMP 오늘 육지 평균·REC 최근 거래일 종가, 못 받은 쪽은 데모 단가),
+  // 데모 발전소는 데모 수익값과 맞도록 데모 단가.
+  const price = isLive ? market.price : RPS_PRICE
+  const kpxSmp = isLive && !!market.smp
+  const kpxRec = isLive && !!market.rec
+  const priceSource = kpxSmp && kpxRec ? 'KPX 시세' : kpxSmp || kpxRec ? 'KPX 시세·데모 단가' : '데모 단가'
+
+  // RPS 카드: 실연동이면 금일 실측 발전량 × 단가, 이력이 필요한 월·누적 값은 '-'
+  const won = (f) => (gen == null ? '-' : `${nf(Math.round(f(gen, price)))} 원`)
   const rps = isLive
     ? {
         smpDaily: won(smpWon),
@@ -318,9 +345,10 @@ export default function DashboardView() {
       {/* 자산 수익 */}
       <div className="card">
         <div className="card-header">
-          <span className="card-title"><Coins /> 발전 자산 수익 현황 [SMP + (REC × 가중치 {RPS_PRICE.weight})] & 친환경 ESG</span>
+          <span className="card-title"><Coins /> 발전 자산 수익 현황 [SMP + (REC × 가중치 {price.weight})] & 친환경 ESG</span>
           <span className="text-muted hide-sm" style={{ fontSize: 12 }}>
-            SMP <b className="text-terra">{RPS_PRICE.smp}원</b> · REC <b className="text-sage">{nf(RPS_PRICE.rec)}원</b> (×{RPS_PRICE.weight})
+            SMP <b className="text-terra">{price.smp.toFixed(2)}원</b>{kpxSmp && ` (${ymdLabel(market.smp.date)} 평균)`}
+            {' · '}REC <b className="text-sage">{nf(Math.round(price.rec))}원</b>{kpxRec && ` (${ymdLabel(market.rec.date)} 종가)`} (×{price.weight})
           </span>
         </div>
         <div className="grid grid-4">
@@ -334,7 +362,8 @@ export default function DashboardView() {
         </div>
         {isLive && (
           <div className="text-muted" style={{ fontSize: 11.5, marginTop: 10 }}>
-            금일 수익은 실측 발전량 × 위 단가(데모 단가)로 계산합니다. 금월·금년·누적은 발전 이력 API 연동 전이라 표시하지 않습니다.
+            금일 수익은 실측 발전량 × 위 단가({priceSource === 'KPX 시세' ? 'KPX 시세: SMP 오늘 육지 평균 · REC 최근 거래일 종가' : priceSource})로 계산합니다.
+            금월·금년·누적은 발전 이력 API 연동 전이라 표시하지 않습니다.
           </div>
         )}
       </div>
@@ -446,7 +475,11 @@ export default function DashboardView() {
         <div className="card">
           <div className="card-header">
             <span className="card-title"><Coins /> 예상 발전 금액 (RPS)</span>
-            {isLive && <span className="badge badge-neutral" style={{ fontSize: 10.5 }}>금일 실측 × 데모 단가</span>}
+            {isLive && (
+              <span className={`badge ${priceSource === 'KPX 시세' ? 'badge-sync' : 'badge-neutral'}`} style={{ fontSize: 10.5 }}>
+                금일 실측 × {priceSource}
+              </span>
+            )}
           </div>
           <div className="info-list">
             <div style={{ fontWeight: 800, color: 'var(--sage-strong)' }}>SMP (전력계통 한계가격)</div>
@@ -463,38 +496,50 @@ export default function DashboardView() {
         <div className="card">
           <div className="card-header">
             <span className="card-title"><TrendingUp /> REC 시장 동향</span>
-            {demoBadge ? <span className="badge badge-neutral">데모 시세</span> : <span className="badge badge-sync">🟢 KPX 시세</span>}
+            {market.rec ? (
+              <span className="badge badge-sync" title="전력거래소 REC 현물시장 — 최근 거래일 종가(육지+제주 체결 기준)">🟢 KPX 시세 ({ymdLabel(market.rec.date)})</span>
+            ) : <DemoMarketBadge market={market} />}
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', background: 'var(--bg-subtle)', padding: '8px 12px', borderRadius: 10, marginBottom: 8 }}>
             <div>
               <div style={{ fontSize: 10.5, color: 'var(--text-3)', fontWeight: 700 }}>현물시장 종가</div>
-              <div style={{ fontWeight: 800, fontSize: 15, color: 'var(--terracotta)' }}>{nf(REC_MARKET.price)} <small style={{ fontSize: 11 }}>원/REC</small></div>
+              <div style={{ fontWeight: 800, fontSize: 15, color: 'var(--terracotta)' }}>{nf(Math.round(market.rec ? market.rec.price : REC_MARKET.price))} <small style={{ fontSize: 11 }}>원/REC</small></div>
             </div>
             <div style={{ textAlign: 'right' }}>
-              <span className="text-emerald" style={{ fontWeight: 800, fontSize: 11.5 }}>▲ {nf(REC_MARKET.change)}원 ({REC_MARKET.pct})</span>
-              <div style={{ fontSize: 10, color: 'var(--text-3)', fontWeight: 700 }}>거래량 {REC_MARKET.volume}</div>
+              {market.rec
+                ? <ChangeText change={market.rec.change} pct={market.rec.pct} />
+                : <span className="text-emerald" style={{ fontWeight: 800, fontSize: 11.5 }}>▲ {nf(REC_MARKET.change)}원 ({REC_MARKET.pct})</span>}
+              <div style={{ fontSize: 10, color: 'var(--text-3)', fontWeight: 700 }}>
+                거래량 {market.rec ? (market.rec.volume == null ? '-' : `${nf(market.rec.volume)} REC`) : REC_MARKET.volume}
+              </div>
             </div>
           </div>
-          <div className="chart-box" style={{ height: 140 }}><RecMarketChart /></div>
+          <div className="chart-box" style={{ height: 140 }}><RecMarketChart series={market.rec?.series} /></div>
         </div>
 
         {/* SMP 시장 */}
         <div className="card">
           <div className="card-header">
             <span className="card-title"><TrendingUp /> 실시간 SMP 전력시장</span>
-            {demoBadge ? <span className="badge badge-neutral">데모 시세</span> : <span className="badge badge-sync">🟢 KPX 시세</span>}
+            {market.smp ? (
+              <span className="badge badge-sync" title="전력거래소 하루전 발전계획용 SMP — h시 = (h-1)시~h시 구간">🟢 KPX 시세 ({market.smp.hour}시)</span>
+            ) : <DemoMarketBadge market={market} />}
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', background: 'var(--bg-subtle)', padding: '8px 12px', borderRadius: 10, marginBottom: 8 }}>
             <div>
               <div style={{ fontSize: 10.5, color: 'var(--text-3)', fontWeight: 700 }}>육지 SMP 단가</div>
-              <div style={{ fontWeight: 800, fontSize: 15, color: 'var(--terracotta)' }}>{SMP_MARKET.landPrice} <small style={{ fontSize: 11 }}>원/kWh</small></div>
+              <div style={{ fontWeight: 800, fontSize: 15, color: 'var(--terracotta)' }}>{market.smp ? market.smp.price.toFixed(2) : SMP_MARKET.landPrice} <small style={{ fontSize: 11 }}>원/kWh</small></div>
             </div>
             <div style={{ textAlign: 'right' }}>
-              <span className="text-emerald" style={{ fontWeight: 800, fontSize: 11.5 }}>{SMP_MARKET.change}</span>
-              <div style={{ fontSize: 10, color: 'var(--text-3)', fontWeight: 700 }}>제주 SMP {SMP_MARKET.jejuPrice}원</div>
+              {market.smp
+                ? <ChangeText change={market.smp.change} pct={market.smp.pct} digits={2} suffix=" 직전 시간 대비" />
+                : <span className="text-emerald" style={{ fontWeight: 800, fontSize: 11.5 }}>{SMP_MARKET.change}</span>}
+              <div style={{ fontSize: 10, color: 'var(--text-3)', fontWeight: 700 }}>
+                제주 SMP {market.smp ? (market.smp.jeju == null ? '-' : `${market.smp.jeju.toFixed(2)}원`) : `${SMP_MARKET.jejuPrice}원`}
+              </div>
             </div>
           </div>
-          <div className="chart-box" style={{ height: 140 }}><SmpMarketChart /></div>
+          <div className="chart-box" style={{ height: 140 }}><SmpMarketChart series={market.smp?.series} /></div>
         </div>
 
         {/* DC/AC 계측 */}

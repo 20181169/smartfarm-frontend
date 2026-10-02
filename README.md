@@ -12,6 +12,18 @@ npm run build    # 프로덕션 빌드 → dist/
 npm run preview  # 빌드 결과 미리보기
 ```
 
+### 전력거래소 SMP·REC 시세 (선택)
+
+대시보드의 SMP·REC 시세는 공공데이터포털 OpenAPI 를 브라우저에서 직접 호출합니다(`src/lib/kpx.js`).
+인증키가 없으면 데모 시세로 표시됩니다.
+
+1. [공공데이터포털](https://www.data.go.kr)에서 두 API 활용신청 (같은 인증키 사용)
+   - 한국전력거래소_계통한계가격 및 수요예측(하루전 발전계획용) — `B552115/SmpWithForecastDemand`
+   - 한국전력거래소_REC 현물시장 정보 — `B552115/RecMarketInfo2`
+2. 로컬: 프로젝트 루트 `.env.local` 에 `VITE_DATA_GO_KR_KEY=인증키` (git 에 올라가지 않음) 후 개발 서버 재시작
+3. 배포: GitHub 저장소 Settings → Secrets and variables → Actions 에 `DATA_GO_KR_KEY` 등록
+   (빌드 결과물에 포함되므로 공개 키로 취급 — 응답은 브라우저에 캐시해 호출 수를 줄임)
+
 ## 기술 스택
 
 - **Vite 5** + **React 18** (JSX)

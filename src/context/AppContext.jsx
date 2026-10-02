@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { PLANTS, DEFAULT_PLANT_ID, getPlant } from '../data/plants'
 import { fetchWeather } from '../lib/weather'
 import { smpWon, recWon } from '../lib/format'
+import { RPS_PRICE } from '../data/market'
+import { hasKpxKey, loadMarket, smpNow, recSummary } from '../lib/kpx'
 import {
   apiLogin, apiGetMe, apiGetPlants, apiPlantLive, apiGetRoles, apiGetDevices, mapPlant, setToken, getToken,
   AUTH_EXPIRED_EVENT,
@@ -96,6 +98,40 @@ export function AppProvider({ children }) {
 
   const basePlant = useMemo(() => catalog[plantId] || getPlant(plantId), [catalog, plantId])
   const isBackendPlant = !!basePlant?._backend
+
+  // 전력거래소 SMP·REC 시세(공공데이터포털 직접 호출). 30분마다 다시 읽고(응답은 kpx.js 가 캐시),
+  // 지금 시각의 SMP(시간대별 값)가 바뀌므로 요약은 5분마다 다시 계산한다.
+  const [marketRaw, setMarketRaw] = useState(() => ({ status: hasKpxKey() ? 'loading' : 'nokey' }))
+  const [marketTick, setMarketTick] = useState(0)
+  useEffect(() => {
+    if (!hasKpxKey()) return undefined
+    let alive = true
+    const load = async () => {
+      const m = await loadMarket()
+      if (alive) setMarketRaw(m)
+    }
+    load()
+    const t1 = setInterval(load, 30 * 60 * 1000)
+    const t2 = setInterval(() => setMarketTick((x) => x + 1), 5 * 60 * 1000)
+    return () => {
+      alive = false
+      clearInterval(t1)
+      clearInterval(t2)
+    }
+  }, [])
+  const market = useMemo(() => {
+    const smp = smpNow(marketRaw.smp)
+    const rec = recSummary(marketRaw.rec)
+    return {
+      status: marketRaw.status, // nokey | loading | ok
+      error: marketRaw.error || null,
+      smp, // 오늘 시간별 SMP 요약(없으면 null)
+      rec, // 최근 REC 거래일 요약(없으면 null)
+      // 수익 계산 단가: SMP = 오늘 육지 평균, REC = 최근 거래일 종가. 없는 쪽은 데모 단가.
+      price: { smp: smp?.avg ?? RPS_PRICE.smp, rec: rec?.price ?? RPS_PRICE.rec, weight: RPS_PRICE.weight },
+    }
+    // marketTick: 시간이 지나면 smpNow 가 고르는 '현재 시간대'가 바뀐다
+  }, [marketRaw, marketTick])
 
   // 테마 적용
   useEffect(() => {
@@ -262,8 +298,8 @@ export function AppProvider({ children }) {
       // 금일 발전시간 = 금일 발전량 / 설비용량 (등가 가동시간)
       todayGenHours: genLive && basePlant.capacityKw ? +(gen / basePlant.capacityKw).toFixed(2) : null,
       yesterdayGenKwh: null, // 발전 이력 API 없음
-      // 대시보드 표기 단가(SMP + REC×가중치)와 같은 식으로 계산
-      todayRevenueMan: genLive ? +((smpWon(gen) + recWon(gen)) / 10000).toFixed(1) : null,
+      // 대시보드 표기 단가(SMP + REC×가중치)와 같은 식 — KPX 시세가 있으면 시세, 없으면 데모 단가
+      todayRevenueMan: genLive ? +((smpWon(gen, market.price) + recWon(gen, market.price)) / 10000).toFixed(1) : null,
       co2ReducedTon: genLive ? +((gen * 0.48) / 1000).toFixed(2) : null,
       acPower: withUnit(live.currentPowerKw, 'kW'),
       dcPower: withUnit(live.dcPowerKw, 'kW'),
@@ -288,7 +324,7 @@ export function AppProvider({ children }) {
       _todayGenPartial: !!live.todayGenPartial,
       _todayGenUntil: live.todayGenUntilAt, // 통신 두절 전 마지막 응답 시각 → '금일 발전량 (09:08까지)'
     }
-  }, [basePlant, live, devices])
+  }, [basePlant, live, devices, market.price])
 
   // 날씨: 응답 중인 백엔드 환경센서 값을 우선, 센서가 없으면 Open-Meteo.
   // 기온=외기온도 센서(없으면 기상센서), 모듈온도=표면온도 센서, 경사/수평 일사량=센서 종류(sun_type)별 실측값.
@@ -395,6 +431,7 @@ export function AppProvider({ children }) {
     user,
     theme,
     weather,
+    market, // KPX SMP·REC 시세 { status, error, smp, rec, price }
     connected,
     backendPlants,
     menuRole,

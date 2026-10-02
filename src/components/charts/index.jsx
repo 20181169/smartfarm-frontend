@@ -103,31 +103,36 @@ export function YearlyGenChart() {
   return <Line data={data} options={baseOpts(axis)} />
 }
 
-export function RecMarketChart() {
+// series: KPX 최근 거래일 { labels, close, avg } (없으면 데모 추이)
+export function RecMarketChart({ series }) {
   const axis = useAxis()
   const o = baseOpts(axis, true)
   o.scales.y.ticks.callback = (v) => (v / 10000).toFixed(1) + '만'
+  const s = series || { labels: REC_MARKET.labels, close: REC_MARKET.landClose, avg: REC_MARKET.landAvg }
   const data = {
-    labels: REC_MARKET.labels,
+    labels: s.labels,
     datasets: [
-      { label: '육지 종가 (원)', data: REC_MARKET.landClose, borderColor: '#e07a5f', borderWidth: 2.5, fill: true, tension: 0.3,
+      { label: '종가 (원)', data: s.close, borderColor: '#e07a5f', borderWidth: 2.5, fill: true, tension: 0.3,
         backgroundColor: (c) => fill(c, 'rgba(224,122,95,ALPHA)', 0.25), pointRadius: 3, pointHoverRadius: 7, pointBackgroundColor: '#e07a5f' },
-      { label: '육지 평균가 (원)', data: REC_MARKET.landAvg, borderColor: '#4b6b55', borderWidth: 1.5, borderDash: [4, 4], fill: false, tension: 0.3, pointRadius: 2, pointHoverRadius: 6 },
+      { label: '육지 평균가 (원)', data: s.avg, borderColor: '#4b6b55', borderWidth: 1.5, borderDash: [4, 4], fill: false, tension: 0.3, pointRadius: 2, pointHoverRadius: 6 },
     ],
   }
   return <Line data={data} options={o} />
 }
 
-export function SmpMarketChart() {
+// series: KPX 오늘 시간별 { labels, land, jeju } (없으면 데모 추이)
+export function SmpMarketChart({ series }) {
   const axis = useAxis()
   const o = baseOpts(axis, true)
   o.scales.y.ticks.callback = (v) => v + '원'
+  const s = series || { labels: SMP_MARKET.labels, land: SMP_MARKET.land, jeju: SMP_MARKET.jeju }
+  const pt = series ? 1.5 : 3 // 시간별(24점)은 점을 작게
   const data = {
-    labels: SMP_MARKET.labels,
+    labels: s.labels,
     datasets: [
-      { label: '육지 SMP (원)', data: SMP_MARKET.land, borderColor: '#e07a5f', borderWidth: 2.5, fill: true, tension: 0.3,
-        backgroundColor: (c) => fill(c, 'rgba(224,122,95,ALPHA)', 0.25), pointRadius: 3, pointHoverRadius: 7, pointBackgroundColor: '#e07a5f' },
-      { label: '제주 SMP (원)', data: SMP_MARKET.jeju, borderColor: '#4b6b55', borderWidth: 1.5, borderDash: [4, 4], fill: false, tension: 0.3, pointRadius: 2, pointHoverRadius: 6 },
+      { label: '육지 SMP (원)', data: s.land, borderColor: '#e07a5f', borderWidth: 2.5, fill: true, tension: 0.3,
+        backgroundColor: (c) => fill(c, 'rgba(224,122,95,ALPHA)', 0.25), pointRadius: pt, pointHoverRadius: 7, pointBackgroundColor: '#e07a5f' },
+      { label: '제주 SMP (원)', data: s.jeju, borderColor: '#4b6b55', borderWidth: 1.5, borderDash: [4, 4], fill: false, tension: 0.3, pointRadius: pt - 1, pointHoverRadius: 6 },
     ],
   }
   return <Line data={data} options={o} />
