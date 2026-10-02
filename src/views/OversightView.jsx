@@ -229,7 +229,8 @@ export default function OversightView() {
           </div>
         )}
 
-        <div ref={mapRef} style={{ height: 380, borderRadius: 12, overflow: 'hidden', background: 'var(--bg-subtle)' }} />
+        {/* isolation: Leaflet 내부 z-index(400~1000)가 사이드바·헤더 위로 새지 않게 쌓임 맥락을 분리 */}
+        <div ref={mapRef} style={{ height: 380, borderRadius: 12, overflow: 'hidden', background: 'var(--bg-subtle)', isolation: 'isolate' }} />
       </div>
 
       {/* 우선 확인 대상 + 정기점검 (영농이행 = 데모. 백엔드 소스에선 미제공 안내) */}
