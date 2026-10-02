@@ -498,6 +498,30 @@ export function apiDashboardOverview(plantId, { staleMinutes = 10 } = {}) {
   )
 }
 
+/* ----------------------------------------------------------------- Alerts */
+// MRT 오류 이벤트 기반 알람 (telemetry:read 권한). 봉투 언랩: { items: [AlertResponse], count }
+//   AlertResponse: alert_id, device_id, device_name, external_seq, severity(info|warning|critical),
+//   trigger_type(communication_lost|communication_restored|mrt_event), message, triggered_at, resolved_at, is_active
+
+export function apiAlertsRecent(plantId, { limit = 500, skip = 0 } = {}) {
+  const q = new URLSearchParams({ plant_id: plantId, limit: String(limit), skip: String(skip) })
+  return request(`/alerts/recent?${q}`)
+}
+
+export function apiAlertsActive(plantId, { limit = 500 } = {}) {
+  const q = new URLSearchParams({ plant_id: plantId, limit: String(limit) })
+  return request(`/alerts/active?${q}`)
+}
+
+// 최근 이력 + 현재 미해결을 합쳐 반환 — 오래된 미해결 알람(예: 며칠 전 강우 경보)이
+// 최근 이력 500건 밖으로 밀려도 빠지지 않게 한다.
+export async function apiPlantAlerts(plantId) {
+  const [recent, active] = await Promise.all([apiAlertsRecent(plantId), apiAlertsActive(plantId)])
+  const byId = new Map()
+  for (const a of [...(recent?.items || []), ...(active?.items || [])]) byId.set(a.alert_id, a)
+  return [...byId.values()]
+}
+
 /* ---------------------------------------------------------------- Devices */
 
 // 발전소 장비 인벤토리 조회. plantId 생략 시 전체.

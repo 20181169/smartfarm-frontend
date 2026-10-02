@@ -2,8 +2,9 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { AlertTriangle, Download, Wifi, WifiOff, RefreshCw } from 'lucide-react'
 import { ERROR_LOGS } from '../data/market'
 import { exportTableToCsv } from '../lib/format'
-import { apiPlantsWithOverview, getToken } from '../lib/api'
+import { apiPlantsWithOverview, apiPlantAlerts, getToken } from '../lib/api'
 import { buildRealLogs } from '../lib/collectorLogs'
+import { buildAlertLogs, mergeLogs } from '../lib/alertLogs'
 
 const FILTERS = [
   { key: 'all', label: '전체' },
@@ -16,6 +17,7 @@ export default function ErrorsView() {
   const [state, setState] = useState('idle') // idle | loading | ok | error
   const [realLogs, setRealLogs] = useState([])
   const [msg, setMsg] = useState('')
+  const [alertNote, setAlertNote] = useState('')
   const tableRef = useRef(null)
 
   const load = useCallback(async () => {
@@ -26,7 +28,17 @@ export default function ErrorsView() {
     setState('loading')
     try {
       const data = await apiPlantsWithOverview()
-      setRealLogs(buildRealLogs(data))
+      // 장비 알람은 발전소별로 조회. 일부가 실패해도(권한·네트워크) 수집기 상태 로그는 그대로 보여준다.
+      const results = await Promise.allSettled(data.map(({ plant }) => apiPlantAlerts(plant.plant_id)))
+      const failed = results.filter((r) => r.status === 'rejected')
+      setAlertNote(
+        failed.length ? `장비 알람 조회 실패 (${failed.length}/${results.length}개 발전소): ${failed[0].reason?.message || '알 수 없는 오류'}` : ''
+      )
+      const plantAlerts = data.map(({ plant }, i) => ({
+        plant,
+        items: results[i].status === 'fulfilled' ? results[i].value : [],
+      }))
+      setRealLogs(mergeLogs(buildAlertLogs(plantAlerts), buildRealLogs(data)))
       setState('ok')
     } catch (err) {
       setState('error')
@@ -58,7 +70,7 @@ export default function ErrorsView() {
         <div className="view-title">장애 · 경보 이력</div>
         <div className="view-sub">
           {isReal
-            ? '백엔드 수집기 상태 · 장비 데이터 수신 이상 실시간 로그'
+            ? 'MRT 장비 알람(통신 두절·경보) · 수집기 상태 · 데이터 수신 이상 — 미해결 먼저 표시'
             : '실시간 장애·경보 로그 및 AI 원인 분석'}
         </div>
       </div>
@@ -96,6 +108,9 @@ export default function ErrorsView() {
         {state === 'error' && (
           <div style={{ fontSize: 13, color: 'var(--terracotta)', fontWeight: 600, padding: '4px 2px' }}>{msg}</div>
         )}
+        {isReal && alertNote && (
+          <div style={{ fontSize: 13, color: 'var(--terracotta)', fontWeight: 600, padding: '4px 2px' }}>{alertNote}</div>
+        )}
         {isReal && rows.length === 0 && (
           <div className="text-muted" style={{ fontSize: 13, padding: '6px 2px' }}>현재 감지된 장애·경보가 없습니다.</div>
         )}
@@ -115,7 +130,7 @@ export default function ErrorsView() {
                   <td>{log.plant}</td>
                   <td>{log.device}</td>
                   <td>{log.type}</td>
-                  <td><span className={`badge ${log.status === 'warning' ? 'badge-warning' : 'badge-active'}`}>{log.statusText}</span></td>
+                  <td><span className={`badge ${log.badge || (log.status === 'warning' ? 'badge-warning' : 'badge-active')}`}>{log.statusText}</span></td>
                   <td style={{ textAlign: 'left', whiteSpace: 'normal', minWidth: 260 }} title={log.raw}>{log.desc}</td>
                   <td><strong>{log.stateText}</strong></td>
                 </tr>
