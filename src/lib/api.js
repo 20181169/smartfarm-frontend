@@ -139,8 +139,16 @@ export function mapPlant(p) {
     lng: p.lng,
     areaM2: p.area_m2 ?? null,
     regionId: p.region_id,
+    // 발전소 관계자(백엔드 82ce469~): 이름만 제공, 등록 전 발전소는 null
+    ownerName: blankToNull(p.owner_name),
+    safetyManagerName: blankToNull(p.safety_manager_name),
+    contractorName: blankToNull(p.contractor_name),
     source: 'api',
   }
+}
+
+function blankToNull(v) {
+  return v == null || String(v).trim() === '' ? null : String(v).trim()
 }
 
 /* -------------------------------------------------------------- Telemetry */

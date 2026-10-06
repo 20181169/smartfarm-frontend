@@ -126,7 +126,7 @@ function WeatherStrip({ plant, weather }) {
   )
 }
 
-// 사업주·안전관리자·시공사는 백엔드 발전소에 없는 항목이라 '-' (템플릿의 다른 발전소 정보를 쓰지 않음)
+// 사업주·안전관리자·시공사: 백엔드 발전소는 /plants 의 owner_name·safety_manager_name·contractor_name (미등록이면 '-')
 function PlantInfoCard({ plant }) {
   const v = (x) => x ?? '-'
   return (

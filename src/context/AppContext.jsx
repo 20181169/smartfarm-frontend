@@ -48,10 +48,11 @@ function toDisplayPlant(bp) {
     capacityKw,
     // 목표 발전량은 템플릿(200kW)의 용량 대비 목표시간을 이 발전소 용량으로 환산
     targetGenKwh: Math.round((TEMPLATE.targetGenKwh / TEMPLATE.capacityKw) * capacityKw),
-    // 사업주·안전관리자·시공사·인버터 모델은 백엔드에 없는 항목 → 템플릿(다른 발전소) 정보를 쓰지 않는다
-    owner: null,
-    manager: null,
-    contractor: null,
+    // 사업주·안전관리자·시공사는 백엔드 발전소 정보(미등록이면 null → '-'). 템플릿(다른 발전소) 정보는 쓰지 않는다.
+    // 인버터 모델은 장비 목록(/devices)에서 따로 채운다.
+    owner: bp.ownerName ?? null,
+    manager: bp.safetyManagerName ?? null,
+    contractor: bp.contractorName ?? null,
     inverterModel: null,
     status: bp.status || 'ACTIVE',
     address: bp.address ?? null,
