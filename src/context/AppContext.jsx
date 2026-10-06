@@ -224,15 +224,24 @@ export function AppProvider({ children }) {
     }
   }, [connected, isBackendPlant, plantId])
 
-  // Open-Meteo 날씨 (백엔드 환경센서가 없을 때 폴백). 백엔드 발전소는 등록 좌표 기준.
+  // Open-Meteo 날씨 (백엔드 환경센서가 없을 때 폴백). 백엔드 발전소는 등록 좌표 기준이고,
+  // 좌표가 없으면 다른 지역(데모 기본 원주) 예보를 이 발전소 날씨처럼 보여주지 않도록 조회하지 않는다.
+  // 있는 그대로: 등록 좌표가 있으면 값이 이상해도 그 좌표로 조회하고(화면에 좌표를 함께 표시), 없으면 조회하지 않는다.
   const plantLat = basePlant?.lat ?? null
   const plantLng = basePlant?.lng ?? null
+  const noCoords = isBackendPlant && (plantLat == null || plantLng == null)
+  const forecastAt = isBackendPlant && !noCoords ? { lat: plantLat, lng: plantLng } : null
   useEffect(() => {
+    if (noCoords) {
+      setMeteo(null)
+      return undefined
+    }
     let alive = true
     const coords = plantLat != null && plantLng != null ? { lat: plantLat, lon: plantLng } : null
     const load = async () => {
       const w = await fetchWeather(plantId, coords)
-      if (alive && w) setMeteo(w)
+      // 어느 발전소용 예보인지 붙여 둔다 — 발전소를 바꾼 직후 이전 발전소 예보가 새 발전소 값처럼 보이지 않게
+      if (alive && w) setMeteo({ ...w, _for: plantId })
     }
     load()
     const t = setInterval(load, 5 * 60 * 1000)
@@ -240,7 +249,7 @@ export function AppProvider({ children }) {
       alive = false
       clearInterval(t)
     }
-  }, [plantId, plantLat, plantLng])
+  }, [plantId, plantLat, plantLng, noCoords])
 
   // 실시간 계측(MRT 정규화 텔레메트리)을 발전소 객체에 병합 → 뷰는 그대로 실데이터 표시.
   // 백엔드가 주는 값은 0이어도 그대로 노출하고(실측), 미제공 값(PEAK·인버터 온도·시세·이력)은
@@ -331,21 +340,25 @@ export function AppProvider({ children }) {
   // 기온=외기온도 센서(없으면 기상센서), 모듈온도=표면온도 센서, 경사/수평 일사량=센서 종류(sun_type)별 실측값.
   const weather = useMemo(() => {
     const env = live?.environment
-    const sensorInfo = env && { staleSeqs: env.staleSeqs, sensorCount: env.sensorCount, source: 'sensor' }
+    // 현재 발전소용으로 받은 예보만 쓴다(발전소 전환 직후 이전 발전소 예보가 남아 있을 수 있음)
+    const m = meteo?._for === plantId ? meteo : null
+    const sensorInfo = env && { staleSeqs: env.staleSeqs, sensorCount: env.sensorCount, source: 'sensor', noCoords }
+    // 일출·일몰은 예보에서만 온다. 실발전소에서 예보가 없으면(좌표 미등록 등) 데모 시각 대신 '-'
+    const sun = (key, demo) => m?.[key] ?? (isBackendPlant ? '-' : demo)
     if (env && !env.stale) {
       const fmt = (v, unit, d = 1) => (v == null ? '-' : `${v.toFixed(d)}${unit}`)
       const irr = env.irradiance
       return {
         // 일사 센서가 응답하지 않으면 날씨 상태는 예보(Open-Meteo)로
-        cond: irr == null ? meteo?.cond ?? '-' : irr < 10 ? '🌙 일사 없음' : irr > 300 ? '☀️ 맑음' : '☁️ 흐림',
+        cond: irr == null ? m?.cond ?? '-' : irr < 10 ? '🌙 일사 없음' : irr > 300 ? '☀️ 맑음' : '☁️ 흐림',
         temp: fmt(env.airTemp, '°C'),
         surfaceTemp: env.surfaceTemp != null ? fmt(env.surfaceTemp, '°C') : null,
         humidity: fmt(env.humidity, '%', 0),
         wind: fmt(env.wind, 'm/s'),
         inclinedIrr: env.inclinedIrr == null ? '-' : `${Math.round(env.inclinedIrr)} W/m²`,
         horizontalIrr: env.horizontalIrr == null ? '-' : `${Math.round(env.horizontalIrr)} W/m²`,
-        sunrise: meteo?.sunrise ?? '05:28',
-        sunset: meteo?.sunset ?? '19:42',
+        sunrise: sun('sunrise', '05:28'),
+        sunset: sun('sunset', '19:42'),
         syncedAt: env.ts,
         stale: false,
         ...sensorInfo,
@@ -355,23 +368,33 @@ export function AppProvider({ children }) {
       // 센서가 전부 응답 없음 → 예보 값(있으면)을 보여주고 배지로 센서 상태를 알린다.
       // 예보의 일사량은 실측이 아니므로 표시하지 않는다.
       return {
-        cond: meteo?.cond ?? '-',
-        temp: meteo?.temp ?? '-',
+        cond: m?.cond ?? '-',
+        temp: m?.temp ?? '-',
         surfaceTemp: null,
-        humidity: meteo?.humidity ?? '-',
-        wind: meteo?.wind ?? '-',
+        humidity: m?.humidity ?? '-',
+        wind: m?.wind ?? '-',
         inclinedIrr: '-',
         horizontalIrr: '-',
-        sunrise: meteo?.sunrise ?? '05:28',
-        sunset: meteo?.sunset ?? '19:42',
+        sunrise: sun('sunrise', '05:28'),
+        sunset: sun('sunset', '19:42'),
         syncedAt: env.ts,
         stale: true,
-        forecast: !!meteo,
+        forecast: !!m,
+        forecastAt: m ? forecastAt : null,
         ...sensorInfo,
       }
     }
-    return meteo ? { ...meteo, source: 'meteo' } : null
-  }, [live, meteo])
+    if (m) return { ...m, source: 'meteo', forecastAt }
+    // 환경센서도 예보도 없는 실발전소(좌표 미등록이거나 예보 조회 중) → 화면의 데모 기본값 대신 모두 '-'
+    if (isBackendPlant) {
+      return {
+        source: 'none', noCoords, cond: '-', temp: '-', surfaceTemp: null, humidity: '-', wind: '-',
+        sunrise: '-', sunset: '-', inclinedIrr: '-', horizontalIrr: '-',
+      }
+    }
+    return null
+    // forecastAt 은 plantLat·plantLng 로만 바뀌므로 두 값을 의존성으로 둔다
+  }, [live, meteo, noCoords, isBackendPlant, plantLat, plantLng, plantId])
 
   const selectPlant = useCallback(
     (id) => {

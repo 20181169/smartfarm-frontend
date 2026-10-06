@@ -85,13 +85,24 @@ function GenCard({ title, badge, color, value, unit, chart, tableHead, tableRows
 }
 
 // 센서 상태 배지: 전부 응답 없음(예보값 표시) / 일부 응답 없음 / 실시간
+const NO_COORDS_HINT = '백엔드에 발전소 위도·경도가 등록되지 않아 날씨 예보를 조회하지 않습니다(다른 지역 예보로 대신 채우지 않음).'
+// 예보가 어느 좌표 기준인지 그대로 보여준다(좌표가 이상하면 값도 이상하게 보이는 이유를 알 수 있게)
+const forecastAtText = (w) => (w?.forecastAt ? `예보 위치: 위도 ${w.forecastAt.lat}, 경도 ${w.forecastAt.lng} (백엔드 등록 좌표)` : null)
+
 function sensorBadge(weather) {
+  if (weather?.source === 'none') {
+    return weather.noCoords
+      ? { cls: 'badge-neutral', text: '📍 발전소 좌표 미등록 · 날씨 예보 없음', title: NO_COORDS_HINT }
+      : { cls: 'badge-neutral', text: '날씨 예보 불러오는 중' }
+  }
   if (weather?.source !== 'sensor') return { cls: 'badge-sync', text: '🟢 기상청 실시간 동기화' }
   const down = weather.staleSeqs || []
   if (weather.stale) {
+    const fc = weather.forecast ? ' · 예보값 표시' : weather.noCoords ? ' · 좌표 미등록(예보 없음)' : ''
     return {
       cls: 'badge-warning',
-      text: `🛰️ 환경센서 응답 없음${weather.forecast ? ' · 예보값 표시' : ''} · 마지막 ${weather.syncedAt}`,
+      text: `🛰️ 환경센서 응답 없음${fc} · 마지막 ${weather.syncedAt}`,
+      title: weather.noCoords && !weather.forecast ? NO_COORDS_HINT : undefined,
     }
   }
   if (down.length) {
@@ -105,10 +116,20 @@ function WeatherStrip({ plant, weather }) {
   return (
     <div className="weather-strip">
       <div className="weather-strip-top">
-        <span style={{ fontWeight: 800 }}>{plant.name} 기상 관측</span>
-        <span className={`badge ${badge.cls}`} title={weather?.staleSeqs?.length ? `응답 없는 센서: seq ${weather.staleSeqs.join(', ')}` : undefined}>
+        <span style={{ fontWeight: 800 }}>
+          {plant.name} 기상 관측
+          {weather?.forecastAt && (
+            <span className="text-muted" style={{ fontSize: 11, fontWeight: 600, marginLeft: 8 }}>
+              예보 좌표 {weather.forecastAt.lat}, {weather.forecastAt.lng}
+            </span>
+          )}
+        </span>
+        <span
+          className={`badge ${badge.cls}`}
+          title={[weather?.staleSeqs?.length ? `응답 없는 센서: seq ${weather.staleSeqs.join(', ')}` : null, badge.title, forecastAtText(weather)].filter(Boolean).join(' / ') || undefined}
+        >
           {badge.text}
-          {weather?.source !== 'sensor' && weather ? ` (${weather.syncedAt})` : ''}
+          {weather?.source === 'meteo' ? ` (${weather.syncedAt})` : ''}
         </span>
       </div>
       <div className="weather-metrics">
