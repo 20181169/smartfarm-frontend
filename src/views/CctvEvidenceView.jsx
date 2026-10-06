@@ -1,8 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
-import { ScanLine, Upload, Play, Square, Download, Tractor, Users, Camera } from 'lucide-react'
+import { ScanLine, Upload, Play, Square, Download, Tractor, Users, Camera, Film } from 'lucide-react'
 import { useApp } from '../context/useApp'
 import { apiGetPlants, apiVisionCameras, apiDetectTractor } from '../lib/api'
 import './CctvEvidenceView.css'
+
+// 테스트용 샘플 영상(public/samples) — Pexels 무료 영상 8349494(트랙터 건초 작업)를 1280x720·15fps VP8 로 줄인 것
+const SAMPLE = {
+  url: `${import.meta.env.BASE_URL}samples/tractor-field.webm`,
+  name: '샘플 영상 · 트랙터 들판 작업',
+  credit: 'Pexels 무료 영상(8349494)을 테스트용으로 줄인 영상 · 1280×720 · 32초',
+}
 
 const LABELS = { tractor: '트랙터', person: '사람', car: '승용차', truck: '트럭', bus: '버스', excavator: '굴착기' }
 const COLORS = { tractor: '#34d399', person: '#38bdf8', car: '#fbbf24', truck: '#fb923c', bus: '#c084fc', excavator: '#fb7185' }
@@ -94,7 +101,7 @@ export default function CctvEvidenceView() {
     return () => abort.abort()
   }, [plantId, mode])
 
-  useEffect(() => () => { if (media) URL.revokeObjectURL(media.url) }, [media])
+  useEffect(() => () => { if (media?.file) URL.revokeObjectURL(media.url) }, [media])
 
   function resetSource(change) {
     stop(); analysisCount.current = 0; setLatestResult(null); setSelectedFrameId(null); setHistory([]); setError(''); change()
@@ -170,6 +177,14 @@ export default function CctvEvidenceView() {
     event.target.value = ''
   }
 
+  // 영상 파일이 없어도 바로 시험해 볼 수 있게 내장 샘플 영상을 불러온다
+  function loadSample() {
+    resetSource(() => {
+      setReady(false)
+      setMedia({ file: null, url: SAMPLE.url, name: SAMPLE.name, type: 'video', sample: true })
+    })
+  }
+
   function download() {
     if (!displayedResult) return
     const { frame_base64, ...metadata } = displayedResult
@@ -200,10 +215,16 @@ export default function CctvEvidenceView() {
           <button className={mode === 'camera' ? 'selected' : ''} onClick={() => resetSource(() => setMode('camera'))}><Camera size={16} /> 등록 CCTV</button>
         </div>
         {mode === 'file' ? <>
-          <label className="tractor-upload"><Upload size={18} /><span>{media?.name || '동영상 또는 이미지 파일 선택'}</span><input aria-label="CCTV 파일 선택" type="file" accept="video/*,image/*" onChange={selectFile} /></label>
-          {media ? media.type === 'video' ? <video className="tractor-media" ref={video} src={media.url} controls playsInline onLoadedData={() => setReady(true)} onError={() => { setReady(false); stop(); setError('이 브라우저에서 재생할 수 없는 영상입니다. MP4(H.264)로 변환하세요.') }} />
+          <div className="tractor-source-row">
+            <label className="tractor-upload"><Upload size={18} /><span>{media && !media.sample ? media.name : '동영상 또는 이미지 파일 선택'}</span><input aria-label="CCTV 파일 선택" type="file" accept="video/*,image/*" onChange={selectFile} /></label>
+            <button type="button" className={`tractor-sample-btn ${media?.sample ? 'selected' : ''}`} disabled={busy || running} onClick={loadSample} aria-label="샘플 영상 불러오기" title={SAMPLE.credit}>
+              <Film size={16} /> 샘플 영상
+            </button>
+          </div>
+          {media ? media.type === 'video' ? <video className="tractor-media" ref={video} src={media.url} controls playsInline onLoadedData={() => setReady(true)} onError={() => { setReady(false); stop(); setError(media.sample ? '샘플 영상을 불러오지 못했습니다(WebM 재생이 안 되는 브라우저일 수 있습니다).' : '이 브라우저에서 재생할 수 없는 영상입니다. MP4(H.264)로 변환하세요.') }} />
             : <img className="tractor-media" src={media.url} alt="분석할 CCTV 이미지" onLoad={() => setReady(true)} onError={() => { setReady(false); setError('이미지를 열 수 없습니다.') }} />
-            : <div className="tractor-empty"><Upload size={44} /><strong>분석할 영상을 준비하세요</strong><span>영상은 브라우저에서 재생하고 선택한 프레임만 분석 서버로 전송합니다.</span></div>}
+            : <div className="tractor-empty"><Upload size={44} /><strong>분석할 영상을 준비하세요</strong><span>영상은 브라우저에서 재생하고 선택한 프레임만 분석 서버로 전송합니다. 파일이 없으면 '샘플 영상'으로 바로 시험해 볼 수 있습니다.</span></div>}
+          {media?.sample && <div className="tractor-sample-credit">{SAMPLE.credit}</div>}
         </> : <>
           <select aria-label="CCTV 카메라" className="plant-select" value={cameraId} onChange={e => resetSource(() => setCameraId(e.target.value))}>
             <option value="">카메라 선택</option>{cameras.map(c => <option key={c.camera_id} value={c.camera_id}>{c.name}</option>)}
