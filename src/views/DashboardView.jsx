@@ -208,7 +208,7 @@ export default function DashboardView() {
     : gen == null ? '금일 발전량 (확인 불가)'
       : plant._todayGenUntil ? `금일 발전량 (${hhmm(plant._todayGenUntil)}까지 수신분)` : '금일 발전량'
 
-  // 수익 단가: 실연동이면 KPX 시세(SMP 오늘 육지 평균·REC 최근 거래일 종가, 못 받은 쪽은 데모 단가),
+  // 수익 단가: 실연동이면 KPX 시세(SMP 최근 게시일 육지 평균·REC 최근 거래일 종가, 못 받은 쪽은 데모 단가),
   // 데모 발전소는 데모 수익값과 맞도록 데모 단가.
   const price = isLive ? market.price : RPS_PRICE
   const kpxSmp = isLive && !!market.smp
@@ -362,7 +362,9 @@ export default function DashboardView() {
         </div>
         {isLive && (
           <div className="text-muted" style={{ fontSize: 11.5, marginTop: 10 }}>
-            금일 수익은 실측 발전량 × 위 단가({priceSource === 'KPX 시세' ? 'KPX 시세: SMP 오늘 육지 평균 · REC 최근 거래일 종가' : priceSource})로 계산합니다.
+            금일 수익은 실측 발전량 × 위 단가({priceSource === 'KPX 시세'
+              ? `KPX 시세: SMP ${ymdLabel(market.smp.date)} 육지 평균 · REC ${ymdLabel(market.rec.date)} 종가`
+              : priceSource})로 계산합니다.
             금월·금년·누적은 발전 이력 API 연동 전이라 표시하지 않습니다.
           </div>
         )}
@@ -522,7 +524,12 @@ export default function DashboardView() {
           <div className="card-header">
             <span className="card-title"><TrendingUp /> 실시간 SMP 전력시장</span>
             {market.smp ? (
-              <span className="badge badge-sync" title="전력거래소 하루전 발전계획용 SMP — h시 = (h-1)시~h시 구간">🟢 KPX 시세 ({market.smp.hour}시)</span>
+              <span
+                className="badge badge-sync"
+                title={`전력거래소 하루전 발전계획용 SMP — h시 = (h-1)시~h시 구간${market.smp.isToday ? '' : ` · 오늘 값이 아직 게시되지 않아 ${ymdLabel(market.smp.date)} 값 표시`}`}
+              >
+                🟢 KPX 시세 ({market.smp.isToday ? '' : `${ymdLabel(market.smp.date)} `}{market.smp.hour}시)
+              </span>
             ) : <DemoMarketBadge market={market} />}
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', background: 'var(--bg-subtle)', padding: '8px 12px', borderRadius: 10, marginBottom: 8 }}>

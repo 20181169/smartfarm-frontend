@@ -128,7 +128,7 @@ export function AppProvider({ children }) {
       error: marketRaw.error || null,
       smp, // 오늘 시간별 SMP 요약(없으면 null)
       rec, // 최근 REC 거래일 요약(없으면 null)
-      // 수익 계산 단가: SMP = 오늘 육지 평균, REC = 최근 거래일 종가. 없는 쪽은 데모 단가.
+      // 수익 계산 단가: SMP = 최근 게시일 육지 평균, REC = 최근 거래일 종가. 없는 쪽은 데모 단가.
       price: { smp: smp?.avg ?? RPS_PRICE.smp, rec: rec?.price ?? RPS_PRICE.rec, weight: RPS_PRICE.weight },
     }
     // marketTick: 시간이 지나면 smpNow 가 고르는 '현재 시간대'가 바뀐다

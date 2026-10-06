@@ -1,9 +1,11 @@
 /* ==========================================================================
    전력거래소(KPX) 시세 — 공공데이터포털 OpenAPI 를 브라우저에서 직접 호출
    - SMP: 한국전력거래소_계통한계가격 및 수요예측(하루전 발전계획용)  B552115/SmpWithForecastDemand
-          일자별 1~24시(각 시간은 '끝나는 시각' 기준: 6시 = 05~06시) 육지·제주 SMP, 매일 23시경 다음 날 값 게시.
+          일자별 1~24시(각 시간은 '끝나는 시각' 기준: 6시 = 05~06시) 육지·제주 SMP.
+          날짜 없이 부르면 최신 날짜부터 내려온다. 게시가 며칠 늦을 수 있어(10/6 실측: 최신 10/1, 오늘 날짜로는 0건)
+          '오늘'이 아니라 가장 최근 게시일 값을 쓰고 화면에 그 날짜를 표시한다.
    - REC: 한국전력거래소_REC 현물시장 정보  B552115/RecMarketInfo2
-          현물시장 거래일(주 2회)별 육지 평균가·종가(육지+제주 체결 기준)·거래물량.
+          현물시장 거래일(주 2회)별 육지 평균가·종가(육지+제주 체결 기준)·거래물량. 과거(2017)부터 오름차순.
    - apis.data.go.kr 는 요청 Origin 을 그대로 허용(CORS)해서 백엔드 없이 호출할 수 있다.
    - 인증키 VITE_DATA_GO_KR_KEY 는 빌드 결과물에 들어가므로 공개 키로 취급(일일 호출 한도 → 응답을 캐시).
    - 키가 없거나 조회에 실패하면 null → 화면은 데모 단가를 유지하고 '데모 시세'로 표시한다.
@@ -71,7 +73,8 @@ export function parseSmp(items) {
   return { date: items[0]?.date ? String(items[0].date) : null, land: land.sort(byHour), jeju: jeju.sort(byHour) }
 }
 
-// 지금 속한 거래시간(h시 = h-1시~h시)의 육지 SMP·직전 시간 대비 변화·제주 SMP, 하루 단순 평균
+// 지금 속한 거래시간(h시 = h-1시~h시)의 육지 SMP·직전 시간 대비 변화·제주 SMP, 하루 단순 평균.
+// 게시일이 오늘이 아니면(게시 지연) 그 날의 같은 시간대 값이며 isToday=false 로 알린다.
 export function smpNow(smp, now = new Date()) {
   if (!smp?.land?.length) return null
   const h = kstParts(now).h + 1
@@ -80,6 +83,7 @@ export function smpNow(smp, now = new Date()) {
   const prev = at(smp.land, h - 1)
   return {
     date: smp.date,
+    isToday: smp.date === kstYmd(now),
     hour: h,
     price,
     change: prev == null ? null : price - prev,
@@ -158,15 +162,16 @@ async function call(path, params) {
   }
 }
 
-// 오늘(KST) 시간별 SMP. 하루 전에 확정 게시되는 값이라 당일에는 다시 받을 필요가 없다 → 날짜별 6시간 캐시.
-export async function fetchSmp(now = new Date()) {
+// 가장 최근 게시일의 시간별 SMP. 날짜 없이 최신순 첫 페이지(100행 = 이틀 남짓)를 받아 최신 날짜만 쓴다. 3시간 캐시.
+export async function fetchSmp() {
   if (!hasKpxKey()) return null
-  const date = kstYmd(now)
-  const cached = cacheGet(`smp:${date}`, 6 * 3600 * 1000)
+  const cached = cacheGet('smp:latest', 3 * 3600 * 1000)
   if (cached) return cached
-  const smp = parseSmp(itemsOf(await call('SmpWithForecastDemand/getSmpWithForecastDemand', { date })))
-  if (!smp.land.length) throw new Error(`${ymdLabel(date)} SMP 가 아직 게시되지 않았습니다.`)
-  cacheSet(`smp:${date}`, smp)
+  const items = itemsOf(await call('SmpWithForecastDemand/getSmpWithForecastDemand', { numOfRows: '100' }))
+  const latest = items.reduce((m, it) => (String(it.date ?? '') > m ? String(it.date) : m), '')
+  const smp = parseSmp(items.filter((it) => String(it.date ?? '') === latest))
+  if (!smp.land.length) throw new Error('게시된 SMP 가 없습니다.')
+  cacheSet('smp:latest', smp)
   return smp
 }
 
@@ -194,9 +199,9 @@ export async function fetchRec() {
 }
 
 // 화면용: SMP·REC 를 각각 조회(한쪽이 실패해도 다른 쪽은 사용). 키가 없으면 { status: 'nokey' }.
-export async function loadMarket(now = new Date()) {
+export async function loadMarket() {
   if (!hasKpxKey()) return { status: 'nokey', smp: null, rec: null, error: null }
-  const [s, r] = await Promise.allSettled([fetchSmp(now), fetchRec()])
+  const [s, r] = await Promise.allSettled([fetchSmp(), fetchRec()])
   const errors = [
     s.status === 'rejected' ? `SMP: ${s.reason?.message}` : null,
     r.status === 'rejected' ? `REC: ${r.reason?.message}` : null,
