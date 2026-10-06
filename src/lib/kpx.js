@@ -130,7 +130,8 @@ export function recSummary(rows) {
 /* ------------------------------------------------------------ 호출·캐시 */
 
 const CACHE = 'kpx:'
-function cacheGet(key, maxAgeMs) {
+// maxAgeMs 를 넘긴 값은 null. maxAgeMs 를 주지 않으면 오래된 값도 돌려준다(새로 받기 전 임시 표시용).
+function cacheGet(key, maxAgeMs = Infinity) {
   try {
     const v = JSON.parse(localStorage.getItem(CACHE + key))
     if (v && Date.now() - v.at < maxAgeMs) return v.data
@@ -162,10 +163,12 @@ async function call(path, params) {
   }
 }
 
+const CACHE_MS = 3 * 3600 * 1000 // SMP·REC 모두 3시간
+
 // 가장 최근 게시일의 시간별 SMP. 날짜 없이 최신순 첫 페이지(100행 = 이틀 남짓)를 받아 최신 날짜만 쓴다. 3시간 캐시.
 export async function fetchSmp() {
   if (!hasKpxKey()) return null
-  const cached = cacheGet('smp:latest', 3 * 3600 * 1000)
+  const cached = cacheGet('smp:latest', CACHE_MS)
   if (cached) return cached
   const items = itemsOf(await call('SmpWithForecastDemand/getSmpWithForecastDemand', { numOfRows: '100' }))
   const latest = items.reduce((m, it) => (String(it.date ?? '') > m ? String(it.date) : m), '')
@@ -178,7 +181,7 @@ export async function fetchSmp() {
 // 최근 REC 현물시장 거래일들. 정렬 순서가 명세에 없어 첫 페이지가 과거부터면 마지막 페이지를 다시 받는다. 3시간 캐시.
 export async function fetchRec() {
   if (!hasKpxKey()) return null
-  const cached = cacheGet('rec', 3 * 3600 * 1000)
+  const cached = cacheGet('rec', CACHE_MS)
   if (cached) return cached
   const PAGE = 10
   const first = await call('RecMarketInfo2/getRecMarketInfo2', { numOfRows: String(PAGE) })
@@ -198,18 +201,35 @@ export async function fetchRec() {
   return rows
 }
 
-// 화면용: SMP·REC 를 각각 조회(한쪽이 실패해도 다른 쪽은 사용). 키가 없으면 { status: 'nokey' }.
-export async function loadMarket() {
-  if (!hasKpxKey()) return { status: 'nokey', smp: null, rec: null, error: null }
-  const [s, r] = await Promise.allSettled([fetchSmp(), fetchRec()])
-  const errors = [
-    s.status === 'rejected' ? `SMP: ${s.reason?.message}` : null,
-    r.status === 'rejected' ? `REC: ${r.reason?.message}` : null,
-  ].filter(Boolean)
-  return {
-    status: 'ok',
-    smp: s.status === 'fulfilled' ? s.value : null,
-    rec: r.status === 'fulfilled' ? r.value : null,
-    error: errors.join(' / ') || null,
-  }
+// 저장해 둔 시세를 호출 없이 바로 꺼낸다(3시간이 지났어도) — 공공데이터포털 응답이 10~20초 걸릴 때가 있어
+// 새로 받는 동안 '불러오는 중' 대신 마지막 값을 날짜와 함께 보여준다. 한쪽만 있으면 나머지는 불러오는 중.
+export function peekMarket() {
+  if (!hasKpxKey()) return null
+  const smp = cacheGet('smp:latest')
+  const rec = cacheGet('rec')
+  if (!smp && !rec) return null
+  return { status: smp && rec ? 'ok' : 'loading', smp, rec, error: null }
+}
+
+// 화면용: SMP·REC 를 각각 조회(한쪽이 실패해도 다른 쪽은 사용, 새로 받기에 실패하면 저장해 둔 마지막 값).
+// 동시에 여러 번 불려도(개발 모드 이중 실행 등) 호출은 한 번만. 키가 없으면 { status: 'nokey' }.
+let inflight = null
+export function loadMarket() {
+  if (!hasKpxKey()) return Promise.resolve({ status: 'nokey', smp: null, rec: null, error: null })
+  inflight ??= (async () => {
+    const [s, r] = await Promise.allSettled([fetchSmp(), fetchRec()])
+    const errors = [
+      s.status === 'rejected' ? `SMP: ${s.reason?.message}` : null,
+      r.status === 'rejected' ? `REC: ${r.reason?.message}` : null,
+    ].filter(Boolean)
+    return {
+      status: 'ok',
+      smp: s.status === 'fulfilled' ? s.value : cacheGet('smp:latest'),
+      rec: r.status === 'fulfilled' ? r.value : cacheGet('rec'),
+      error: errors.join(' / ') || null,
+    }
+  })().finally(() => {
+    inflight = null
+  })
+  return inflight
 }

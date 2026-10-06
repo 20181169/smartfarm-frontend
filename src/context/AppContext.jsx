@@ -3,7 +3,7 @@ import { PLANTS, DEFAULT_PLANT_ID, getPlant } from '../data/plants'
 import { fetchWeather } from '../lib/weather'
 import { smpWon, recWon } from '../lib/format'
 import { RPS_PRICE } from '../data/market'
-import { hasKpxKey, loadMarket, smpNow, recSummary } from '../lib/kpx'
+import { hasKpxKey, loadMarket, peekMarket, smpNow, recSummary } from '../lib/kpx'
 import {
   apiLogin, apiGetMe, apiGetPlants, apiPlantLive, apiGetRoles, apiGetDevices, mapPlant, setToken, getToken,
   AUTH_EXPIRED_EVENT,
@@ -102,7 +102,8 @@ export function AppProvider({ children }) {
 
   // 전력거래소 SMP·REC 시세(공공데이터포털 직접 호출). 30분마다 다시 읽고(응답은 kpx.js 가 캐시),
   // 지금 시각의 SMP(시간대별 값)가 바뀌므로 요약은 5분마다 다시 계산한다.
-  const [marketRaw, setMarketRaw] = useState(() => ({ status: hasKpxKey() ? 'loading' : 'nokey' }))
+  // 저장해 둔 시세가 있으면 그 값으로 시작(새로고침 직후 '불러오는 중'이 보이지 않게), 없으면 불러오는 중.
+  const [marketRaw, setMarketRaw] = useState(() => peekMarket() ?? { status: hasKpxKey() ? 'loading' : 'nokey' })
   const [marketTick, setMarketTick] = useState(0)
   useEffect(() => {
     if (!hasKpxKey()) return undefined
@@ -125,6 +126,7 @@ export function AppProvider({ children }) {
     const rec = recSummary(marketRaw.rec)
     return {
       status: marketRaw.status, // nokey | loading | ok
+      loading: marketRaw.status === 'loading', // 아직 시세를 못 받음 → 화면은 데모 숫자 대신 '-'
       error: marketRaw.error || null,
       smp, // 오늘 시간별 SMP 요약(없으면 null)
       rec, // 최근 REC 거래일 요약(없으면 null)
@@ -309,7 +311,8 @@ export function AppProvider({ children }) {
       todayGenHours: genLive && basePlant.capacityKw ? +(gen / basePlant.capacityKw).toFixed(2) : null,
       yesterdayGenKwh: null, // 발전 이력 API 없음
       // 대시보드 표기 단가(SMP + REC×가중치)와 같은 식 — KPX 시세가 있으면 시세, 없으면 데모 단가
-      todayRevenueMan: genLive ? +((smpWon(gen, market.price) + recWon(gen, market.price)) / 10000).toFixed(1) : null,
+      // 시세를 불러오는 중이면 데모 단가로 잠깐 계산하지 않고 '-'
+      todayRevenueMan: genLive && !market.loading ? +((smpWon(gen, market.price) + recWon(gen, market.price)) / 10000).toFixed(1) : null,
       co2ReducedTon: genLive ? +((gen * 0.48) / 1000).toFixed(2) : null,
       acPower: withUnit(live.currentPowerKw, 'kW'),
       dcPower: withUnit(live.dcPowerKw, 'kW'),
@@ -334,7 +337,7 @@ export function AppProvider({ children }) {
       _todayGenPartial: !!live.todayGenPartial,
       _todayGenUntil: live.todayGenUntilAt, // 통신 두절 전 마지막 응답 시각 → '금일 발전량 (09:08까지)'
     }
-  }, [basePlant, live, devices, market.price])
+  }, [basePlant, live, devices, market.price, market.loading])
 
   // 날씨: 응답 중인 백엔드 환경센서 값을 우선, 센서가 없으면 Open-Meteo.
   // 기온=외기온도 센서(없으면 기상센서), 모듈온도=표면온도 센서, 경사/수평 일사량=센서 종류(sun_type)별 실측값.

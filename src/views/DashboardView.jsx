@@ -15,24 +15,35 @@ import {
 
 const yearlyTotal = YEARLY_RECORDS.reduce((s, r) => s + r.genKwh, 0)
 
-// 시세 변동 표기: ▲ 1,200원 (+1.63%) / 비교 대상이 없으면 '-'
-function ChangeText({ change, pct, digits = 0, suffix = '' }) {
-  if (change == null) return <span className="text-muted" style={{ fontWeight: 800, fontSize: 11.5 }}>-</span>
-  const up = change >= 0
-  const abs = Math.abs(change)
+// 시세 변동 표기: ▲ 1,200원 (+1.63%) / 표시 자릿수에서 0 이면 '변동 없음' / 비교 대상이 없으면 '-'
+// basis: 비교 기준 문구(예: '직전 시간 대비')
+function ChangeText({ change, pct, digits = 0, basis = '' }) {
+  const style = { fontWeight: 800, fontSize: 11.5 }
+  if (change == null) return <span className="text-muted" style={style}>-</span>
+  const abs = digits ? Math.abs(change).toFixed(digits) : nf(Math.round(Math.abs(change)))
+  if (Number(String(abs).replace(/,/g, '')) === 0) {
+    return <span className="text-muted" style={style}>{basis ? `${basis} ` : ''}변동 없음</span>
+  }
+  const up = change > 0
   return (
-    <span className={up ? 'text-emerald' : 'text-terra'} style={{ fontWeight: 800, fontSize: 11.5 }}>
-      {up ? '▲' : '▼'} {digits ? abs.toFixed(digits) : nf(Math.round(abs))}원
-      {pct != null && ` (${up ? '+' : '-'}${Math.abs(pct).toFixed(2)}%)`}{suffix}
+    <span className={up ? 'text-emerald' : 'text-terra'} style={style}>
+      {up ? '▲' : '▼'} {abs}원
+      {pct != null && ` (${up ? '+' : '-'}${Math.abs(pct).toFixed(2)}%)`}{basis ? ` ${basis}` : ''}
     </span>
   )
 }
 
-// KPX 시세를 못 받았을 때의 배지 — 사유(키 미설정·조회 실패)는 마우스를 올리면 보인다
-function DemoMarketBadge({ market }) {
-  const why = market.status === 'nokey' ? '공공데이터포털 인증키(VITE_DATA_GO_KR_KEY) 미설정' : market.error || '시세 불러오는 중'
-  return <span className="badge badge-neutral" title={why}>데모 시세</span>
+// KPX 시세 배지: 불러오는 중 / 못 받음(데모 시세 — 사유는 마우스를 올리면 보인다)
+function MarketPendingBadge({ market }) {
+  if (market.loading) return <span className="badge badge-neutral">시세 불러오는 중</span>
+  const why = market.status === 'nokey' ? '공공데이터포털 인증키(VITE_DATA_GO_KR_KEY) 미설정' : market.error || ''
+  return <span className="badge badge-neutral" title={why || undefined}>데모 시세</span>
 }
+
+// 시세를 불러오는 동안 차트 자리
+const ChartPending = () => (
+  <div className="chart-box text-muted" style={{ height: 140, display: 'grid', placeItems: 'center', fontSize: 12 }}>시세 불러오는 중…</div>
+)
 
 // '… 발전소' 로 끝나는 이름에 '발전소'가 또 붙지 않게
 const titleOf = (name) => `${name}${/발전소$/.test(name) ? '' : ' 발전소'} 현황`
@@ -234,10 +245,17 @@ export default function DashboardView() {
   const price = isLive ? market.price : RPS_PRICE
   const kpxSmp = isLive && !!market.smp
   const kpxRec = isLive && !!market.rec
-  const priceSource = kpxSmp && kpxRec ? 'KPX 시세' : kpxSmp || kpxRec ? 'KPX 시세·데모 단가' : '데모 단가'
+  const priceLoading = isLive && market.loading // 시세를 받기 전엔 데모 단가로 잠깐 계산하지 않는다
+  // 새로 받기에 실패해 저장해 둔 마지막 시세를 보여줄 때 배지에 붙일 안내
+  const staleNote = (k) => {
+    const e = (market.error || '').split(' / ').find((x) => x.startsWith(`${k}:`))
+    return e ? ` · 최신 조회 실패로 저장된 값 표시(${e})` : ''
+  }
+  const priceSource = priceLoading ? '시세 불러오는 중'
+    : kpxSmp && kpxRec ? 'KPX 시세' : kpxSmp || kpxRec ? 'KPX 시세·데모 단가' : '데모 단가'
 
   // RPS 카드: 실연동이면 금일 실측 발전량 × 단가, 이력이 필요한 월·누적 값은 '-'
-  const won = (f) => (gen == null ? '-' : `${nf(Math.round(f(gen, price)))} 원`)
+  const won = (f) => (gen == null || priceLoading ? '-' : `${nf(Math.round(f(gen, price)))} 원`)
   const rps = isLive
     ? {
         smpDaily: won(smpWon),
@@ -368,8 +386,12 @@ export default function DashboardView() {
         <div className="card-header">
           <span className="card-title"><Coins /> 발전 자산 수익 현황 [SMP + (REC × 가중치 {price.weight})] & 친환경 ESG</span>
           <span className="text-muted hide-sm" style={{ fontSize: 12 }}>
-            SMP <b className="text-terra">{price.smp.toFixed(2)}원</b>{kpxSmp && ` (${ymdLabel(market.smp.date)} 평균)`}
-            {' · '}REC <b className="text-sage">{nf(Math.round(price.rec))}원</b>{kpxRec && ` (${ymdLabel(market.rec.date)} 종가)`} (×{price.weight})
+            {priceLoading ? '시세 불러오는 중…' : (
+              <>
+                SMP <b className="text-terra">{price.smp.toFixed(2)}원</b>{kpxSmp && ` (${ymdLabel(market.smp.date)} 평균)`}
+                {' · '}REC <b className="text-sage">{nf(Math.round(price.rec))}원</b>{kpxRec && ` (${ymdLabel(market.rec.date)} 종가)`} (×{price.weight})
+              </>
+            )}
           </span>
         </div>
         <div className="grid grid-4">
@@ -520,24 +542,29 @@ export default function DashboardView() {
           <div className="card-header">
             <span className="card-title"><TrendingUp /> REC 시장 동향</span>
             {market.rec ? (
-              <span className="badge badge-sync" title="전력거래소 REC 현물시장 — 최근 거래일 종가(육지+제주 체결 기준)">🟢 KPX 시세 ({ymdLabel(market.rec.date)})</span>
-            ) : <DemoMarketBadge market={market} />}
+              <span className="badge badge-sync" title={`전력거래소 REC 현물시장 — 최근 거래일 종가(육지+제주 체결 기준)${staleNote('REC')}`}>🟢 KPX 시세 ({ymdLabel(market.rec.date)})</span>
+            ) : <MarketPendingBadge market={market} />}
           </div>
+          {/* 값: KPX 시세 → 그대로 / 불러오는 중 → '-' / 못 받음 → 데모 시세 */}
           <div style={{ display: 'flex', justifyContent: 'space-between', background: 'var(--bg-subtle)', padding: '8px 12px', borderRadius: 10, marginBottom: 8 }}>
             <div>
               <div style={{ fontSize: 10.5, color: 'var(--text-3)', fontWeight: 700 }}>현물시장 종가</div>
-              <div style={{ fontWeight: 800, fontSize: 15, color: 'var(--terracotta)' }}>{nf(Math.round(market.rec ? market.rec.price : REC_MARKET.price))} <small style={{ fontSize: 11 }}>원/REC</small></div>
+              <div style={{ fontWeight: 800, fontSize: 15, color: 'var(--terracotta)' }}>
+                {market.rec ? nf(Math.round(market.rec.price)) : market.loading ? '-' : nf(REC_MARKET.price)} <small style={{ fontSize: 11 }}>원/REC</small>
+              </div>
             </div>
             <div style={{ textAlign: 'right' }}>
-              {market.rec
-                ? <ChangeText change={market.rec.change} pct={market.rec.pct} />
-                : <span className="text-emerald" style={{ fontWeight: 800, fontSize: 11.5 }}>▲ {nf(REC_MARKET.change)}원 ({REC_MARKET.pct})</span>}
+              {market.rec ? <ChangeText change={market.rec.change} pct={market.rec.pct} />
+                : market.loading ? <ChangeText change={null} />
+                  : <span className="text-emerald" style={{ fontWeight: 800, fontSize: 11.5 }}>▲ {nf(REC_MARKET.change)}원 ({REC_MARKET.pct})</span>}
               <div style={{ fontSize: 10, color: 'var(--text-3)', fontWeight: 700 }}>
-                거래량 {market.rec ? (market.rec.volume == null ? '-' : `${nf(market.rec.volume)} REC`) : REC_MARKET.volume}
+                거래량 {market.rec ? (market.rec.volume == null ? '-' : `${nf(market.rec.volume)} REC`) : market.loading ? '-' : REC_MARKET.volume}
               </div>
             </div>
           </div>
-          <div className="chart-box" style={{ height: 140 }}><RecMarketChart series={market.rec?.series} /></div>
+          {market.loading && !market.rec ? <ChartPending /> : (
+            <div className="chart-box" style={{ height: 140 }}><RecMarketChart series={market.rec?.series} /></div>
+          )}
         </div>
 
         {/* SMP 시장 */}
@@ -547,27 +574,31 @@ export default function DashboardView() {
             {market.smp ? (
               <span
                 className="badge badge-sync"
-                title={`전력거래소 하루전 발전계획용 SMP — h시 = (h-1)시~h시 구간${market.smp.isToday ? '' : ` · 오늘 값이 아직 게시되지 않아 ${ymdLabel(market.smp.date)} 값 표시`}`}
+                title={`전력거래소 하루전 발전계획용 SMP — h시 = (h-1)시~h시 구간${market.smp.isToday ? '' : ` · 오늘 값이 아직 게시되지 않아 ${ymdLabel(market.smp.date)} 값 표시`}${staleNote('SMP')}`}
               >
                 🟢 KPX 시세 ({market.smp.isToday ? '' : `${ymdLabel(market.smp.date)} `}{market.smp.hour}시)
               </span>
-            ) : <DemoMarketBadge market={market} />}
+            ) : <MarketPendingBadge market={market} />}
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', background: 'var(--bg-subtle)', padding: '8px 12px', borderRadius: 10, marginBottom: 8 }}>
             <div>
               <div style={{ fontSize: 10.5, color: 'var(--text-3)', fontWeight: 700 }}>육지 SMP 단가</div>
-              <div style={{ fontWeight: 800, fontSize: 15, color: 'var(--terracotta)' }}>{market.smp ? market.smp.price.toFixed(2) : SMP_MARKET.landPrice} <small style={{ fontSize: 11 }}>원/kWh</small></div>
+              <div style={{ fontWeight: 800, fontSize: 15, color: 'var(--terracotta)' }}>
+                {market.smp ? market.smp.price.toFixed(2) : market.loading ? '-' : SMP_MARKET.landPrice} <small style={{ fontSize: 11 }}>원/kWh</small>
+              </div>
             </div>
             <div style={{ textAlign: 'right' }}>
-              {market.smp
-                ? <ChangeText change={market.smp.change} pct={market.smp.pct} digits={2} suffix=" 직전 시간 대비" />
-                : <span className="text-emerald" style={{ fontWeight: 800, fontSize: 11.5 }}>{SMP_MARKET.change}</span>}
+              {market.smp ? <ChangeText change={market.smp.change} pct={market.smp.pct} digits={2} basis="직전 시간 대비" />
+                : market.loading ? <ChangeText change={null} />
+                  : <span className="text-emerald" style={{ fontWeight: 800, fontSize: 11.5 }}>{SMP_MARKET.change}</span>}
               <div style={{ fontSize: 10, color: 'var(--text-3)', fontWeight: 700 }}>
-                제주 SMP {market.smp ? (market.smp.jeju == null ? '-' : `${market.smp.jeju.toFixed(2)}원`) : `${SMP_MARKET.jejuPrice}원`}
+                제주 SMP {market.smp ? (market.smp.jeju == null ? '-' : `${market.smp.jeju.toFixed(2)}원`) : market.loading ? '-' : `${SMP_MARKET.jejuPrice}원`}
               </div>
             </div>
           </div>
-          <div className="chart-box" style={{ height: 140 }}><SmpMarketChart series={market.smp?.series} /></div>
+          {market.loading && !market.smp ? <ChartPending /> : (
+            <div className="chart-box" style={{ height: 140 }}><SmpMarketChart series={market.smp?.series} /></div>
+          )}
         </div>
 
         {/* DC/AC 계측 */}
