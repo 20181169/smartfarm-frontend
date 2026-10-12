@@ -35,7 +35,7 @@ export class ApiError extends Error {
   }
 }
 
-async function request(path, { method = 'GET', body, auth = true, signal } = {}) {
+async function request(path, { method = 'GET', body, auth = true, signal, responseType } = {}) {
   const headers = { 'Content-Type': 'application/json' }
   const token = getToken()
   if (auth && token) headers.Authorization = `Bearer ${token}`
@@ -49,10 +49,12 @@ async function request(path, { method = 'GET', body, auth = true, signal } = {})
       signal,
     })
   } catch (e) {
+    if (e.name === 'AbortError') throw e
     // 네트워크 오류 (백엔드 미가동 등) → 상태 0 으로 구분
     throw new ApiError('백엔드에 연결할 수 없습니다.', 0, 'NETWORK')
   }
 
+  if (res.ok && responseType === 'blob') return res.blob()
   let json = null
   try {
     json = await res.json()
@@ -87,6 +89,36 @@ export async function apiLogin(email, password) {
   if (data?.access_token) setToken(data.access_token)
   return data // { access_token, token_type, expires_in }
 }
+
+// Assessment lists are paginated by the server; do not silently omit plans or history.
+async function assessmentPages(path, params = {}, signal) {
+  const items = []
+  for (let skip = 0; ; skip += 100) {
+    const query = new URLSearchParams({ ...params, skip, limit: 100 })
+    const data = await request(`${path}?${query}`, { signal })
+    const page = data?.items
+    if (!Array.isArray(page)) throw new ApiError('목록 응답을 확인할 수 없습니다.', 502)
+    items.push(...page)
+    const total = data.total ?? data.pagination?.total
+    if (!page.length || (total != null ? items.length >= total : page.length < 100)) return items
+  }
+}
+
+export const apiAssessmentPlants = (signal) => assessmentPages('/plants', {}, signal)
+export const apiFarmingPlans = (plantId, signal) => assessmentPages('/farming-plans', { plant_id: plantId }, signal)
+export const apiFarmingPlan = (id, signal) => request(`/farming-plans/${encodeURIComponent(id)}`, { signal })
+export const apiPlanMatches = (id, signal) => assessmentPages(`/farming-plans/${encodeURIComponent(id)}/matches`, {}, signal)
+export const apiPlanPreview = (id, signal) => request(`/farming-plans/${encodeURIComponent(id)}/assessment-preview`, { signal })
+export const apiPlanAssessments = (id, signal) => assessmentPages(`/farming-plans/${encodeURIComponent(id)}/assessments`, {}, signal)
+export function apiSavePlanAssessment(id, { result, comment }) {
+  if (!['fulfilled', 'not_fulfilled', 'unable_to_determine'].includes(result) || !comment?.trim() || comment.trim().length > 2000) {
+    return Promise.reject(new ApiError('평가 결과와 1~2,000자의 의견을 입력해 주세요.', 422))
+  }
+  return request(`/farming-plans/${encodeURIComponent(id)}/assessments`, { method: 'POST', body: { result, comment: comment.trim() } })
+}
+export const apiFarmingActivity = (id, signal) => request(`/farming-activities/${encodeURIComponent(id)}`, { signal })
+export const apiAssessmentAnalysis = (id, signal) => request(`/vision/analyses/${encodeURIComponent(id)}`, { signal })
+export const apiAssessmentImage = (id, signal) => request(`/vision/analyses/${encodeURIComponent(id)}/image/annotated`, { signal, responseType: 'blob' })
 
 export function apiGetMe() {
   return request('/auth/me') // { user_id, email, name, role_id, status, ... }

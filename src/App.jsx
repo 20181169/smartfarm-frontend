@@ -16,6 +16,7 @@ import ErrorsView from './views/ErrorsView'
 import SettingsView from './views/SettingsView'
 import ComparisonView from './views/ComparisonView'
 import InspectionView from './views/InspectionView'
+import PlanAssessmentView from './views/PlanAssessmentView'
 import RequireSupervisor from './components/RequireSupervisor'
 
 // '/' 는 모든 역할에서 현재상태(발전 대시보드). 관리자·감독관은 로그인 직후에만 종합대시보드(/oversight)로
@@ -32,6 +33,7 @@ export default function App() {
             <Route path="report" element={<ReportView />} />
             <Route path="overview" element={<OverviewView />} />
             <Route path="my-compliance" element={<OwnerAgriStatusView />} />
+            <Route path="plan-assessment" element={<PlanAssessmentView />} />
             <Route path="oversight" element={<OversightView />} />
             <Route path="site-detail" element={<RequireSupervisor><SiteDetailView /></RequireSupervisor>} />
             <Route path="anomalies" element={<RequireSupervisor><RiskCenterView /></RequireSupervisor>} />

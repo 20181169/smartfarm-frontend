@@ -13,6 +13,7 @@ const ITEM = {
   errors: { to: '/errors', label: '에러정보', icon: AlertTriangle },
   comparison: { to: '/comparison', label: '발전소비교', icon: BarChart3 },
   myCompliance: { to: '/my-compliance', label: '영농이행', icon: Sprout },
+  planAssessment: { to: '/plan-assessment', label: '계획평가', icon: ClipboardCheck },
   agriDashboard: { to: '/oversight', label: '종합대시보드', icon: ShieldCheck },
   siteDetail: { to: '/site-detail', label: '사업장상세', icon: ClipboardList },
   anomalies: { to: '/anomalies', label: '이상징후', icon: ShieldAlert },
@@ -31,14 +32,14 @@ export const NAV_BY_ROLE = {
   admin: [
     ITEM.agriDashboard, ITEM.dashboard, ITEM.equipment, ITEM.calendar, ITEM.report, ITEM.overview,
     ITEM.errors, ITEM.comparison, ITEM.siteDetail, ITEM.anomalies, ITEM.cctv, ITEM.complianceReport,
-    ITEM.settings,
+    ITEM.planAssessment, ITEM.settings,
   ],
   official: [
     ITEM.agriDashboard, ITEM.siteDetail, ITEM.anomalies, ITEM.cctv, ITEM.complianceReport, ITEM.inspection,
-    { ...ITEM.dashboard, label: '발전현재' }, ITEM.comparison, ITEM.settings,
+    { ...ITEM.dashboard, label: '발전현재' }, ITEM.comparison, ITEM.planAssessment, ITEM.settings,
   ],
   owner: [
     ITEM.dashboard, ITEM.equipment, ITEM.calendar, ITEM.report, ITEM.overview, ITEM.errors,
-    ITEM.comparison, ITEM.myCompliance, ITEM.cctv, ITEM.settings,
+    ITEM.comparison, ITEM.myCompliance, ITEM.planAssessment, ITEM.cctv, ITEM.settings,
   ],
 }

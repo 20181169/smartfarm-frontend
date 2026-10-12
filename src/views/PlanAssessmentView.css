@@ -1,0 +1,25 @@
+.plan-assessment .assessment-controls { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) auto; gap: 12px; align-items: end; }
+.plan-assessment label { display: grid; gap: 6px; font-size: 13px; font-weight: 700; }
+.plan-assessment select, .plan-assessment textarea { width: 100%; min-width: 0; }
+.plan-assessment textarea { resize: vertical; font: inherit; line-height: 1.6; }
+.plan-assessment .assessment-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 14px 0; }
+.plan-assessment .assessment-metrics > div { padding: 12px; border-radius: 8px; background: var(--bg-subtle); }
+.plan-assessment .assessment-metrics b { display: block; margin-top: 4px; }
+.plan-assessment .assessment-message { padding: 12px 14px; border-radius: 8px; background: var(--bg-subtle); overflow-wrap: anywhere; }
+.plan-assessment .assessment-error { border-left: 3px solid var(--terracotta); }
+.plan-assessment .assessment-success { border-left: 3px solid var(--sage); }
+.plan-assessment .assessment-layout { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.plan-assessment .assessment-layout > *, .plan-assessment .card { min-width: 0; }
+.plan-assessment .assessment-activity { padding: 12px 0; border-bottom: 1px solid var(--border); }
+.plan-assessment .assessment-activity:first-of-type { padding-top: 0; }
+.plan-assessment .assessment-activity:last-child { border-bottom: none; }
+.plan-assessment .assessment-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin: 6px 0; }
+.plan-assessment .assessment-copy { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13px; }
+.plan-assessment .assessment-evidence { border: 1px solid var(--border); border-radius: 8px; padding: 10px; margin-top: 10px; }
+.plan-assessment .assessment-evidence img { display: block; width: 100%; max-height: 380px; object-fit: contain; margin-top: 10px; background: var(--bg-subtle); }
+.plan-assessment .assessment-history { display: grid; gap: 12px; padding: 0; list-style: none; }
+.plan-assessment .assessment-history li { padding: 12px; background: var(--bg-subtle); border-radius: 8px; }
+.plan-assessment button:disabled { opacity: .5; cursor: not-allowed; }
+.plan-assessment .assessment-form { display: grid; gap: 14px; }
+@media (max-width: 900px) { .plan-assessment .assessment-layout { grid-template-columns: 1fr; } }
+@media (max-width: 600px) { .plan-assessment .assessment-controls { grid-template-columns: 1fr; } .plan-assessment .assessment-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
