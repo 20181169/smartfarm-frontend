@@ -1,6 +1,14 @@
-import { HashRouter, Routes, Route } from 'react-router-dom'
+import {
+  HashRouter,
+  Routes,
+  Route,
+} from 'react-router-dom'
+
 import { AppProvider } from './context/AppContext'
+
 import Layout from './components/layout/Layout'
+import RequireSupervisor from './components/RequireSupervisor'
+
 import DashboardView from './views/DashboardView'
 import EquipmentView from './views/EquipmentView'
 import CalendarView from './views/CalendarView'
@@ -17,35 +25,131 @@ import SettingsView from './views/SettingsView'
 import ComparisonView from './views/ComparisonView'
 import InspectionView from './views/InspectionView'
 import PlanAssessmentView from './views/PlanAssessmentView'
-import RequireSupervisor from './components/RequireSupervisor'
+import FarmingReportPrintView from './views/FarmingReportPrintView'
 
-// '/' 는 모든 역할에서 현재상태(발전 대시보드). 관리자·감독관은 로그인 직후에만 종합대시보드(/oversight)로
-// 이동하고(AuthOverlay), 통합 버전처럼 메뉴에서 대시보드를 열 수 있도록 '/' 를 리다이렉트하지 않는다.
+
+// '/' 는 모든 역할에서 현재상태(발전 대시보드).
 export default function App() {
   return (
-    <AppProvider>
-      <HashRouter>
-        <Routes>
-          <Route element={<Layout />}>
-            <Route index element={<DashboardView />} />
-            <Route path="equipment" element={<EquipmentView />} />
-            <Route path="calendar" element={<CalendarView />} />
-            <Route path="report" element={<ReportView />} />
-            <Route path="overview" element={<OverviewView />} />
-            <Route path="my-compliance" element={<OwnerAgriStatusView />} />
-            <Route path="plan-assessment" element={<PlanAssessmentView />} />
-            <Route path="oversight" element={<OversightView />} />
-            <Route path="site-detail" element={<RequireSupervisor><SiteDetailView /></RequireSupervisor>} />
-            <Route path="anomalies" element={<RequireSupervisor><RiskCenterView /></RequireSupervisor>} />
-            <Route path="cctv" element={<CctvEvidenceView />} />
-            <Route path="compliance-report" element={<RequireSupervisor><ReportCenterView /></RequireSupervisor>} />
-            <Route path="inspection" element={<RequireSupervisor><InspectionView /></RequireSupervisor>} />
-            <Route path="errors" element={<ErrorsView />} />
-            <Route path="settings" element={<SettingsView />} />
-            <Route path="comparison" element={<ComparisonView />} />
-          </Route>
-        </Routes>
-      </HashRouter>
-    </AppProvider>
+    <HashRouter>
+      <Routes>
+        {/*
+          PDF/인쇄 전용 화면.
+          Layout과 AppProvider에서 분리하여
+          사이드바 및 대시보드 polling이
+          PDF 렌더링에 개입하지 않게 한다.
+        */}
+        <Route
+          path="compliance-report/print"
+          element={
+            <FarmingReportPrintView />
+          }
+        />
+
+        <Route
+          element={
+            <AppProvider>
+              <Layout />
+            </AppProvider>
+          }
+        >
+          <Route
+            index
+            element={<DashboardView />}
+          />
+
+          <Route
+            path="equipment"
+            element={<EquipmentView />}
+          />
+
+          <Route
+            path="calendar"
+            element={<CalendarView />}
+          />
+
+          <Route
+            path="report"
+            element={<ReportView />}
+          />
+
+          <Route
+            path="overview"
+            element={<OverviewView />}
+          />
+
+          <Route
+            path="my-compliance"
+            element={<OwnerAgriStatusView />}
+          />
+
+          <Route
+            path="plan-assessment"
+            element={<PlanAssessmentView />}
+          />
+
+          <Route
+            path="oversight"
+            element={<OversightView />}
+          />
+
+          <Route
+            path="site-detail"
+            element={
+              <RequireSupervisor>
+                <SiteDetailView />
+              </RequireSupervisor>
+            }
+          />
+
+          <Route
+            path="anomalies"
+            element={
+              <RequireSupervisor>
+                <RiskCenterView />
+              </RequireSupervisor>
+            }
+          />
+
+          <Route
+            path="cctv"
+            element={<CctvEvidenceView />}
+          />
+
+          <Route
+            path="compliance-report"
+            element={
+              <RequireSupervisor>
+                <ReportCenterView />
+              </RequireSupervisor>
+            }
+          />
+
+          <Route
+            path="inspection"
+            element={
+              <RequireSupervisor>
+                <InspectionView />
+              </RequireSupervisor>
+            }
+          />
+
+          <Route
+            path="errors"
+            element={<ErrorsView />}
+          />
+
+          <Route
+            path="settings"
+            element={<SettingsView />}
+          />
+
+          <Route
+            path="comparison"
+            element={<ComparisonView />}
+          />
+        </Route>
+      </Routes>
+    </HashRouter>
   )
 }

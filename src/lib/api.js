@@ -116,6 +116,46 @@ export function apiSavePlanAssessment(id, { result, comment }) {
   }
   return request(`/farming-plans/${encodeURIComponent(id)}/assessments`, { method: 'POST', body: { result, comment: comment.trim() } })
 }
+
+/* ------------------------------------------------------ Farming Report */
+
+// 영농이행 보고서의 canonical data.
+// 화면은 이 응답을 표시만 하며 이행 여부를 별도로 계산하지 않는다.
+export function apiFarmingReportData({
+  plantId,
+  fromDate,
+  toDate,
+  activityType = null,
+  signal,
+}) {
+  if (!plantId || !fromDate || !toDate) {
+    return Promise.reject(
+      new ApiError(
+        '발전소와 보고서 기간을 확인해 주세요.',
+        422,
+      ),
+    )
+  }
+
+  const query = new URLSearchParams({
+    plant_id: plantId,
+    from_date: fromDate,
+    to_date: toDate,
+  })
+
+  if (activityType?.trim()) {
+    query.set(
+      'activity_type',
+      activityType.trim(),
+    )
+  }
+
+  return request(
+    `/farming-plans/reports/data?${query}`,
+    { signal },
+  )
+}
+
 export const apiFarmingActivity = (id, signal) => request(`/farming-activities/${encodeURIComponent(id)}`, { signal })
 export const apiAssessmentAnalysis = (id, signal) => request(`/vision/analyses/${encodeURIComponent(id)}`, { signal })
 export const apiAssessmentImage = (id, signal) => request(`/vision/analyses/${encodeURIComponent(id)}/image/annotated`, { signal, responseType: 'blob' })
