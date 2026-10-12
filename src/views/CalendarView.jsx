@@ -7,8 +7,13 @@ const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토']
 
 export default function CalendarView() {
   const { plant } = useApp()
-  const [year, setYear] = useState(2026)
-  const [month, setMonth] = useState(7)
+  const [initialDate] = useState(() => new Date())
+  const [year, setYear] = useState(initialDate.getFullYear())
+  const [month, setMonth] = useState(initialDate.getMonth() + 1)
+  const currentYear = new Date().getFullYear()
+  const firstYear = Math.min(currentYear - 2, year)
+  const lastYear = Math.max(currentYear + 1, year)
+  const years = Array.from({ length: lastYear - firstYear + 1 }, (_, i) => firstYear + i)
   const [selectedDay, setSelectedDay] = useState(null)
 
   const firstDayIndex = new Date(year, month - 1, 1).getDay()
@@ -49,11 +54,11 @@ export default function CalendarView() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <button className="icon-btn" onClick={() => changeMonth(-1)}><ChevronLeft /></button>
             <button className="icon-btn" onClick={() => changeMonth(1)}><ChevronRight /></button>
-            <button className="btn-terracotta" onClick={() => { setYear(2026); setMonth(7) }}>오늘</button>
+            <button className="btn-terracotta" onClick={() => { const today = new Date(); setYear(today.getFullYear()); setMonth(today.getMonth() + 1); setSelectedDay(null) }}>오늘</button>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <select className="input" style={{ width: 'auto' }} value={year} onChange={(e) => setYear(+e.target.value)}>
-              {[2024, 2025, 2026, 2027].map((y) => <option key={y} value={y}>{y}년</option>)}
+              {years.map((y) => <option key={y} value={y}>{y}년</option>)}
             </select>
             <select className="input" style={{ width: 'auto' }} value={month} onChange={(e) => setMonth(+e.target.value)}>
               {Array.from({ length: 12 }, (_, i) => <option key={i} value={i + 1}>{i + 1}월</option>)}
