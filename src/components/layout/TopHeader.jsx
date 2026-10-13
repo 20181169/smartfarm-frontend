@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { Menu, Clock, Sun, Moon, LogOut, LogIn, Radio } from 'lucide-react'
 import { useApp } from '../../context/useApp'
 import { nowStamp } from '../../lib/format'
-import logo from '/logo.png'
 
 export default function TopHeader({ onToggleNav, onOpenAuth }) {
   const {
@@ -23,9 +22,8 @@ export default function TopHeader({ onToggleNav, onOpenAuth }) {
         <button className="nav-drawer-handle only-sm" onClick={onToggleNav} aria-label="메뉴">
           <Menu />
         </button>
-        <img src={logo} alt="동양연합 로고" />
         <span className="brand-title hide-sm">
-          동양연합 <span className="accent">영농형 태양광</span>
+          K 에너지 솔루션
         </span>
         <select
           className="plant-select"

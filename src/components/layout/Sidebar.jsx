@@ -25,7 +25,7 @@ export default function Sidebar({ open, onClose }) {
           ))}
         </ul>
         <div className="sidebar-foot">
-          동양연합 영농형 태양광<br />
+          K 에너지 솔루션<br />
           통합 관제 시스템 v1.0
         </div>
       </aside>

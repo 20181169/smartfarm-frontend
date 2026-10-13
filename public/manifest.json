@@ -1,6 +1,6 @@
 {
-  "name": "동양연합 영농형 태양광 스마트 모니터링",
-  "short_name": "동양 태양광",
+  "name": "K 에너지 솔루션 통합 관제 플랫폼",
+  "short_name": "K 에너지 솔루션",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#1a251e",

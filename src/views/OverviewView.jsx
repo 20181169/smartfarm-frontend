@@ -133,8 +133,8 @@ export default function OverviewView() {
         <div className="view-title">전체 발전소 종합 현황</div>
         <div className="view-sub">
           {realCount
-            ? `동양연합 영농형 태양광 · 실발전소 ${realCount}개 (${nf(realCap)} kW)`
-            : `동양연합 영농형 태양광 · 총 ${list.length}개 발전소 (${nf(totalCap)} kW)`}
+            ? `K 에너지 솔루션 · 실발전소 ${realCount}개 (${nf(realCap)} kW)`
+            : `K 에너지 솔루션 · 총 ${list.length}개 발전소 (${nf(totalCap)} kW)`}
         </div>
       </div>
 
