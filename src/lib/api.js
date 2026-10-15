@@ -160,6 +160,19 @@ export const apiFarmingActivity = (id, signal) => request(`/farming-activities/$
 export const apiAssessmentAnalysis = (id, signal) => request(`/vision/analyses/${encodeURIComponent(id)}`, { signal })
 export const apiAssessmentImage = (id, signal) => request(`/vision/analyses/${encodeURIComponent(id)}/image/annotated`, { signal, responseType: 'blob' })
 
+/* -------------------------------------------------------- Farming reports */
+const REPORTS = '/farming-plans/reports'
+export const apiReportPlants = (signal) => assessmentPages('/plants', {}, signal)
+export const apiFarmingReport = (params, signal) => request(`${REPORTS}/data?${new URLSearchParams(params)}`, { signal })
+export const apiGenerateFarmingReport = (params) => request(`${REPORTS}/generate?${new URLSearchParams(params)}`, { method: 'POST' })
+export const apiReportArchive = (plantId, skip = 0, signal) => request(`${REPORTS}/archive?${new URLSearchParams({ plant_id: plantId, skip, limit: 20 })}`, { signal })
+export async function apiDownloadFarmingReport(id, signal) {
+  const blob = await request(`${REPORTS}/archive/${encodeURIComponent(id)}/download`, { signal, responseType: 'blob' })
+  if (await blob.slice(0, 5).text() !== '%PDF-') throw new ApiError('서버가 유효한 PDF 파일을 반환하지 않았습니다.', 502)
+  return blob
+}
+export const apiReportEvidenceImage = (id, type, signal) => request(`/vision/analyses/${encodeURIComponent(id)}/image/${type === 'source' ? 'source' : 'annotated'}`, { signal, responseType: 'blob' })
+
 export function apiGetMe() {
   return request('/auth/me') // { user_id, email, name, role_id, status, ... }
 }
