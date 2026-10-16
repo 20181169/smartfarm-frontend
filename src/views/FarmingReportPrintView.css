@@ -45,16 +45,18 @@
 .report-brand img { width: 10mm; height: 10mm; flex-shrink: 0; object-fit: contain; }
 .report-brand strong { display: block; font-size: 11.5pt; font-weight: 800; line-height: 1.5; white-space: nowrap; }
 .report-brand span { display: block; margin-top: 1mm; font-size: 8pt; font-weight: 400; color: var(--report-muted); }
-.report-approval { width: 108mm; flex-shrink: 0; table-layout: fixed; border-collapse: collapse; font-size: 9pt; text-align: center; color: var(--report-ink); }
-.report-approval th, .report-approval td { border: 1px solid #89989e; }
-.report-approval th { background: #f1f4f5; font-weight: 600; height: 7mm; padding: 1mm; }
-.report-approval td { vertical-align: top; padding: 3mm 2mm; overflow-wrap: anywhere; }
-.report-approval-name { display: block; font-size: 10pt; line-height: 1.5; }
-.report-approval-role { display: block; margin-top: 1mm; font-size: 8pt; line-height: 1.5; color: var(--report-muted); }
-.report-approval-date { min-height: 9mm; margin: 2mm 0; font-size: 7.5pt; line-height: 1.45; color: var(--report-muted); }
-.report-approval-result { display: inline-block; padding: .8mm 2mm; border: 1px solid #c3cbce; background: #f4f6f7; font-size: 8pt; font-weight: 700; line-height: 1.4; }
-.report-approval-result.positive { color: #225c46; border-color: #a8c9b9; background: #edf5f0; }
-.report-approval-result.negative { color: #983f34; border-color: #dfb5af; background: #fcf1ef; }
+.report-signoff { width: 90mm; flex-shrink: 0; table-layout: fixed; border-collapse: collapse; font-size: 9pt; text-align: center; color: var(--report-ink); }
+.report-signoff th, .report-signoff td { border: 1px solid #89989e; padding: 1mm; }
+.report-signoff th { background: #f1f4f5; font-weight: 600; height: 7mm; }
+.report-signoff .report-signoff-label { width: 9mm; }
+.report-signoff .report-signoff-blank { height: 20mm; background: white; }
+.report-signoff .report-signoff-date { height: 6mm; font-size: 7.5pt; color: var(--report-muted); }
+.report-workflow { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 8.5pt; text-align: center; color: var(--report-ink); }
+.report-workflow th, .report-workflow td { border: 1px solid var(--report-line); padding: 2mm; overflow-wrap: anywhere; }
+.report-workflow thead th { background: #edf3f2; font-weight: 700; }
+.report-workflow tbody th { background: #f7f9f9; font-weight: 600; }
+.report-workflow-name { font-weight: 700; }
+.report-workflow-role, .report-workflow-date { color: var(--report-muted); font-size: 8pt; }
 .report-cover-title { margin: 6mm 0 4mm; text-align: center; padding-bottom: 4mm; border-bottom: 2px solid var(--report-ink); }
 .report-cover-title p { color: var(--report-accent); font-size: 10pt; font-weight: 600; letter-spacing: .12em; }
 .report-cover-title h1 { margin: 2mm 0; font-size: 28pt; font-weight: 800; letter-spacing: -.05em; line-height: 1.35; }

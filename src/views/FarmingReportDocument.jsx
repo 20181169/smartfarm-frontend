@@ -59,38 +59,50 @@ function Heading({ children, detail }) {
   return <div className="report-subhead"><h2>{children}</h2>{detail && <span>{detail}</span>}</div>
 }
 function Empty({ children }) { return <div className="report-empty">{children}</div> }
-const APPROVAL_STAGES = [
+// A printed report's signatures are independent of the farming workflow history.
+function ReportSignoff() {
+  const roles = ['담당', '검토', '승인']
+  return (
+    <table className="report-signoff" aria-label="보고서 서면 결재란">
+      <tbody>
+        <tr><th rowSpan={3} className="report-signoff-label" scope="rowgroup">결<br />재</th>{roles.map(role => <th key={role} scope="col">{role}</th>)}</tr>
+        <tr>{roles.map(role => <td key={role} className="report-signoff-blank" aria-label={`${role} 서명란`} />)}</tr>
+        <tr>{roles.map(role => <td key={role} className="report-signoff-date" aria-label={`${role} 결재일 기입란`}>일자:　　/　　</td>)}</tr>
+      </tbody>
+    </table>
+  )
+}
+
+const WORKFLOW_STAGES = [
   { key: 'author', title: '계획 작성', results: { created: '작성완료' } },
   { key: 'reviewer', title: '활동 검토', results: { confirmed: '검토완료' } },
   { key: 'final_reviewer', title: '최종 평가', results: { fulfilled: '이행', not_fulfilled: '미이행', unable_to_determine: '판단불가' } },
 ]
 
-function Approval({ approval }) {
+// The API calls this payload `approval`, but it contains farming workflow events,
+// not signatures or electronic approval of this report.
+function WorkflowHistory({ approval }) {
   return (
-    <table className="report-approval" aria-label="영농 업무 처리 이력">
-      <thead>
-        <tr>{APPROVAL_STAGES.map(stage => <th key={stage.key} scope="col">{stage.title}</th>)}</tr>
-      </thead>
-      <tbody>
-        <tr>{APPROVAL_STAGES.map(stage => {
-          const actor = approval?.[stage.key]
-          const result = actor?.result
-          const status = result ? stage.results[result] || String(result) : stage.key === 'final_reviewer' ? '미평가' : '-'
-          const processedAt = timestamp(actor?.processed_at)
-          const [date, time] = processedAt === '—' ? ['-'] : processedAt.split(' ')
-          const tone = result === 'not_fulfilled' ? 'negative' : ['created', 'confirmed', 'fulfilled'].includes(result) ? 'positive' : 'neutral'
-          return (
-            <td key={stage.key} data-approval-stage={stage.key}>
-              <strong className="report-approval-name">{actor?.name || '-'}</strong>
-              <span className="report-approval-role">{actor?.role_name || '-'}</span>
-              <div className="report-approval-date">
-                {time ? <time dateTime={actor.processed_at}>{date}<br />{time}</time> : date}
-              </div>
-              <span className={`report-approval-result ${tone}`}>{status}</span>
-            </td>
-          )
-        })}</tr>
-      </tbody>
+    <table className="report-workflow" aria-label="영농 업무 처리 이력">
+      <colgroup><col style={{ width: '15%' }} /><col style={{ width: '18%' }} /><col style={{ width: '25%' }} /><col style={{ width: '25%' }} /><col style={{ width: '17%' }} /></colgroup>
+      <thead><tr>{['업무 단계', '처리자', '역할', '처리일시', '처리 결과'].map(title => <th key={title} scope="col">{title}</th>)}</tr></thead>
+      <tbody>{WORKFLOW_STAGES.map(stage => {
+        const actor = approval?.[stage.key]
+        const result = actor?.result
+        const status = result ? stage.results[result] || String(result) : stage.key === 'final_reviewer' ? '미평가' : '-'
+        const processedAt = timestamp(actor?.processed_at)
+        const [date, time] = processedAt === '—' ? ['-'] : processedAt.split(' ')
+        const tone = result === 'not_fulfilled' ? 'negative' : ['created', 'confirmed', 'fulfilled'].includes(result) ? 'positive' : 'neutral'
+        return (
+          <tr key={stage.key} data-workflow-stage={stage.key}>
+            <th scope="row">{stage.title}</th>
+            <td className="report-workflow-name">{actor?.name || '-'}</td>
+            <td className="report-workflow-role">{actor?.role_name || '-'}</td>
+            <td className="report-workflow-date">{time ? <time dateTime={actor.processed_at}>{date}<br />{time}</time> : date}</td>
+            <td><span className={`report-badge ${tone} report-workflow-result`}>{status}</span></td>
+          </tr>
+        )
+      })}</tbody>
     </table>
   )
 }
@@ -132,7 +144,7 @@ function buildSections(report) {
   const rate = plans.length ? Math.round(completed / plans.length * 1000) / 10 : null
   const block = (node, keep = false) => ({ node, keep })
   const cover = <div className="report-cover-content">
-    <div className="report-cover-top"><div className="report-brand"><img src={REPORT_COMPANY_LOGO} alt="동양연합 로고" /><div><strong>{REPORT_COMPANY_NAME}</strong><span>영농형 태양광 통합 관제</span></div></div><Approval approval={report.approval} /></div>
+    <div className="report-cover-top"><div className="report-brand"><img src={REPORT_COMPANY_LOGO} alt="동양연합 로고" /><div><strong>{REPORT_COMPANY_NAME}</strong><span>영농형 태양광 통합 관제</span></div></div><ReportSignoff /></div>
     <div className="report-cover-title"><p>영농형 태양광 · 정기점검</p><h1>영농이행 점검 보고서</h1><span>영농계획 · 활동 기록 · 영상 증빙 · 검토 결과</span></div>
     <dl className="report-period"><Field title="보고 대상 기간">{text(report.from_date)} — {text(report.to_date)}</Field><Field title="집계 기준일">{text(report.as_of_date)}</Field></dl>
     <Heading>사업장 개요</Heading>
@@ -169,7 +181,10 @@ function buildSections(report) {
   })
   if (!events.length) eventBlocks.push(block(<Empty>계획에 연결된 영농활동이 없습니다.</Empty>))
 
-  const assessmentBlocks = [block(<><AssessmentStats counts={counts} /><Heading>계획별 최종평가</Heading></>, plans.length > 0)]
+  const assessmentBlocks = [
+    block(<><Heading>영농 업무 처리 이력</Heading><WorkflowHistory approval={report.approval} /></>),
+    block(<Heading>계획별 최종평가</Heading>, plans.length > 0),
+  ]
   plans.forEach(plan => assessmentBlocks.push(block(<article className="report-assessment-row" data-record="assessment"><div className="report-record-title"><h3>{text(plan.title)}</h3><Badge value={plan.final_assessment} assessment /></div><dl className="report-plan-fields"><Field title="계획 기간">{text(plan.planned_start_date)} ~ {text(plan.planned_end_date)}</Field><Field title="유효 연결 활동"><b className="report-inline-number">{number(plan.valid_event_count)}</b> 건</Field><Field title="최근 평가 시각">{plan.latest_assessed_at ? timestamp(plan.latest_assessed_at) : '평가 기록 없음'}</Field></dl></article>)))
   if (!plans.length) assessmentBlocks.push(block(<Empty>평가 대상 계획이 없습니다.</Empty>))
   assessmentBlocks.push(block(<Heading detail="증빙별 최근 검토 기록">영상 증빙 검토</Heading>, reviews.length > 0))
