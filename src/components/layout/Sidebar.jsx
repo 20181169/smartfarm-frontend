@@ -1,11 +1,11 @@
 import { NavLink } from 'react-router-dom'
-import { NAV_BY_ROLE } from './navConfig'
+import { navigationItems } from './navConfig'
 import { useApp } from '../../context/useApp'
 
 export default function Sidebar({ open, onClose }) {
-  const { menuRole } = useApp()
+  const { menuRole, user } = useApp()
   // 현재 역할(시스템 관리자 / 지자체 감독관 / 발전사업자)의 메뉴
-  const items = NAV_BY_ROLE[menuRole] || NAV_BY_ROLE.owner
+  const items = navigationItems(user, menuRole)
   return (
     <>
       <aside className={`sidebar ${open ? 'open' : ''}`}>

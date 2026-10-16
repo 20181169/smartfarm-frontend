@@ -1,3 +1,4 @@
+import { hasPermission, ROUTE_PERMISSIONS } from '../../lib/permissions'
 import {
   LayoutDashboard, Cpu, CalendarDays, FileText,
   Factory, AlertTriangle, Settings, BarChart3, ShieldCheck,
@@ -42,4 +43,13 @@ export const NAV_BY_ROLE = {
     ITEM.dashboard, ITEM.equipment, ITEM.calendar, ITEM.report, ITEM.overview, ITEM.errors,
     ITEM.comparison, ITEM.myCompliance, ITEM.planAssessment, ITEM.cctv, ITEM.settings,
   ],
+}
+
+export function navigationItems(user, menuRole) {
+  const ordered = NAV_BY_ROLE[menuRole] || NAV_BY_ROLE.owner
+  // Role only orders menus. Permission-bearing screens are available to every
+  // account that the server grants access, including operators and viewers.
+  const items = [...ordered, ...Object.values(ITEM).filter((item) => ROUTE_PERMISSIONS[item.to])]
+  return items.filter((item, i) => items.findIndex((x) => x.to === item.to) === i)
+    .filter((item) => !ROUTE_PERMISSIONS[item.to] || ROUTE_PERMISSIONS[item.to].every((code) => hasPermission(user, code)))
 }

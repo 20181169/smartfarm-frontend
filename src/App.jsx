@@ -7,7 +7,8 @@ import {
 import { AppProvider } from './context/AppContext'
 
 import Layout from './components/layout/Layout'
-import RequireSupervisor from './components/RequireSupervisor'
+import RequirePermission from './components/RequirePermission'
+import { ROUTE_PERMISSIONS } from './lib/permissions'
 
 import DashboardView from './views/DashboardView'
 import EquipmentView from './views/EquipmentView'
@@ -85,52 +86,44 @@ export default function App() {
 
           <Route
             path="plan-assessment"
-            element={<PlanAssessmentView />}
+            element={<RequirePermission permissions={ROUTE_PERMISSIONS['/plan-assessment']}><PlanAssessmentView /></RequirePermission>}
           />
 
           <Route
             path="oversight"
-            element={<OversightView />}
+            element={<RequirePermission permissions={ROUTE_PERMISSIONS['/oversight']}><OversightView /></RequirePermission>}
           />
 
           <Route
             path="site-detail"
             element={
-              <RequireSupervisor>
-                <SiteDetailView />
-              </RequireSupervisor>
+              <RequirePermission permissions={ROUTE_PERMISSIONS['/site-detail']}><SiteDetailView /></RequirePermission>
             }
           />
 
           <Route
             path="anomalies"
             element={
-              <RequireSupervisor>
-                <RiskCenterView />
-              </RequireSupervisor>
+              <RequirePermission permissions={ROUTE_PERMISSIONS['/anomalies']}><RiskCenterView /></RequirePermission>
             }
           />
 
           <Route
             path="cctv"
-            element={<CctvEvidenceView />}
+            element={<RequirePermission permissions={ROUTE_PERMISSIONS['/cctv']}><CctvEvidenceView /></RequirePermission>}
           />
 
           <Route
             path="compliance-report"
             element={
-              <RequireSupervisor>
-                <ReportCenterView />
-              </RequireSupervisor>
+              <RequirePermission permissions={ROUTE_PERMISSIONS['/compliance-report']}><ReportCenterView /></RequirePermission>
             }
           />
 
           <Route
             path="inspection"
             element={
-              <RequireSupervisor>
-                <InspectionView />
-              </RequireSupervisor>
+              <RequirePermission permissions={ROUTE_PERMISSIONS['/inspection']}><InspectionView /></RequirePermission>
             }
           />
 

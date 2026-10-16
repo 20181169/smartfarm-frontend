@@ -28,10 +28,12 @@ function Failure({ error, retry }) {
 }
 
 function Evidence({ evidence }) {
+  const { hasPermission } = useApp()
+  const canRead = hasPermission('vision:read')
   const [opened, setOpened] = useState(false)
   const [data, setData] = useState(null)
   useEffect(() => {
-    if (!opened) return undefined
+    if (!opened || !canRead) return undefined
     const controller = new AbortController()
     let url
     setData(null)
@@ -45,10 +47,10 @@ function Evidence({ evidence }) {
         error: [detail, picture].filter((r) => r.status === 'rejected').map((r) => errorText(r.reason)).join(' ') })
     })
     return () => { controller.abort(); if (url) URL.revokeObjectURL(url) }
-  }, [opened, evidence.analysis_id])
+  }, [opened, evidence.analysis_id, canRead])
   return <div className="assessment-evidence">
     <div className="assessment-row"><span>{fmtTime(evidence.evidence_at)} · {STATUSES[evidence.vision_status] || evidence.vision_status}</span>
-      <button className="icon-btn" aria-expanded={opened} onClick={() => setOpened((v) => !v)}>{opened ? '증빙 닫기' : '증빙 보기'}</button></div>
+      <button className="icon-btn" disabled={!canRead} aria-expanded={opened} onClick={() => setOpened((v) => !v)}>{opened ? '증빙 닫기' : '증빙 보기'}</button></div>
     {opened && (!data ? <p role="status">증빙을 불러오는 중입니다.</p> : <>
       {data.error && <Failure error={data.error} />}
       {data.url && <img src={data.url} alt="선택한 영농활동의 분석 증빙 이미지" />}
@@ -61,24 +63,26 @@ function Evidence({ evidence }) {
 }
 
 function Activity({ match, valid, invalid }) {
+  const { hasPermission } = useApp()
+  const canRead = hasPermission('farming_activity:read')
   const [opened, setOpened] = useState(false)
   const [state, setState] = useState({ loading: true })
   const [reload, setReload] = useState(0)
   useEffect(() => {
-    if (!opened) return undefined
+    if (!opened || !canRead) return undefined
     const controller = new AbortController()
     setState({ loading: true })
     apiFarmingActivity(match.event_id, controller.signal).then((data) => {
       if (!controller.signal.aborted) setState({ data })
     }).catch((e) => { if (!controller.signal.aborted) setState({ error: errorText(e) }) })
     return () => controller.abort()
-  }, [opened, match.event_id, reload])
+  }, [opened, match.event_id, reload, canRead])
   return <div className="assessment-activity">
     <div className="assessment-row"><strong>{match.event_title}</strong>
       <span className="badge badge-neutral">{valid ? '유효 증빙' : invalid ? '무효화된 증빙' : '유효 증빙으로 집계되지 않음'}</span></div>
     <div className="text-muted">{match.activity_type} · {fmtTime(match.event_started_at)} · {STATUSES[match.event_status] || match.event_status}</div>
     {match.comment && <p className="assessment-copy">연결 의견: {match.comment}</p>}
-    <button className="icon-btn" aria-expanded={opened} onClick={() => setOpened((v) => !v)}>{opened ? '활동 닫기' : '활동·증빙 확인'}</button>
+    <button className="icon-btn" disabled={!canRead} aria-expanded={opened} onClick={() => setOpened((v) => !v)}>{opened ? '활동 닫기' : '활동·증빙 확인'}</button>
     {opened && (state.loading ? <p role="status">활동을 불러오는 중입니다.</p> : state.error ? <Failure error={state.error} retry={() => setReload((v) => v + 1)} /> : <>
       <p className="assessment-copy">{state.data.description || '활동 설명이 없습니다.'}</p>
       {state.data.evidence?.length ? state.data.evidence.map((ev) => <Evidence key={ev.analysis_id} evidence={ev} />) : <p>연결된 영상 증빙이 없습니다.</p>}
@@ -87,6 +91,8 @@ function Activity({ match, valid, invalid }) {
 }
 
 function PlanDetail({ planId, canAssess, onBusy }) {
+  const { hasPermission } = useApp()
+  const canReadMatches = hasPermission('farming_match:read')
   const [state, setState] = useState({ loading: true })
   const [reload, setReload] = useState(0)
   const [result, setResult] = useState('')
@@ -101,11 +107,11 @@ function PlanDetail({ planId, canAssess, onBusy }) {
     const controller = new AbortController()
     setState({ loading: true })
     Promise.all([apiFarmingPlan(planId, controller.signal), apiPlanPreview(planId, controller.signal),
-      apiPlanMatches(planId, controller.signal), apiPlanAssessments(planId, controller.signal)]).then(([plan, preview, matches, history]) => {
+      canReadMatches ? apiPlanMatches(planId, controller.signal) : Promise.resolve([]), apiPlanAssessments(planId, controller.signal)]).then(([plan, preview, matches, history]) => {
       if (!controller.signal.aborted) setState({ plan, preview, matches, history: [...history].sort((a, b) => new Date(b.assessed_at) - new Date(a.assessed_at)) })
     }).catch((e) => { if (!controller.signal.aborted) setState({ error: errorText(e) }) })
     return () => controller.abort()
-  }, [planId, reload])
+  }, [planId, reload, canReadMatches])
   const save = async (event) => {
     event.preventDefault()
     if (posting.current || !canAssess || !result || !comment.trim() || state.loading || state.error || state.plan.status === 'cancelled' || state.preview.phase === 'excluded') return
@@ -147,12 +153,12 @@ function PlanDetail({ planId, canAssess, onBusy }) {
       <section className="card" aria-label="연결된 활동 및 증빙">
         <h3 className="card-title">연결된 활동 · 증빙 ({matches.length}건)</h3>
         <p className="view-sub">증빙 유효 여부는 현재 계획 평가에 반영된 서버 조회 결과입니다.</p>
-        {matches.length ? matches.map((match) => <Activity key={match.match_id} match={match} valid={validIds.has(match.event_id)} invalid={match.event_status === 'cancelled'} />)
+        {!canReadMatches ? <p>계획에 연결된 활동을 조회할 권한이 없습니다.</p> : matches.length ? matches.map((match) => <Activity key={match.match_id} match={match} valid={validIds.has(match.event_id)} invalid={match.event_status === 'cancelled'} />)
           : <p>이 계획에 연결된 영농활동이 없습니다.</p>}
       </section>
       <section className="card" aria-label="평가 입력">
         <h3 className="card-title">계획 이행 평가</h3>
-        {!canAssess ? <p className="assessment-message">조회 전용입니다. 평가는 관리자·감독 계정에서 등록할 수 있습니다.</p>
+        {!canAssess ? <p className="assessment-message">조회 전용입니다. 이행평가 수정 권한이 있는 계정에서 등록할 수 있습니다.</p>
           : excluded ? <p className="assessment-message">취소되었거나 평가에서 제외된 계획입니다. 기존 평가 이력만 확인할 수 있습니다.</p>
             : <form className="assessment-form" onSubmit={save}>
               <p className="view-sub">연결된 활동과 증빙을 확인한 뒤 결과와 판단 근거를 입력해 주세요.</p>
@@ -227,11 +233,11 @@ function AssessmentWorkspace({ initialPlantId, canAssess }) {
 }
 
 export default function PlanAssessmentView() {
-  const { user, plantId, isSupervisor } = useApp()
+  const { user, plantId, hasPermission } = useApp()
   return <div className="view stack plan-assessment">
     <div><div className="view-title"><ClipboardCheck size={20} /> 영농계획 이행 평가</div><div className="view-sub">계획별 활동·증빙을 확인하고 평가 결과와 이력을 관리합니다.</div></div>
     {user?.source === 'api'
-      ? <AssessmentWorkspace key={user.email} initialPlantId={plantId} canAssess={isSupervisor} />
+      ? <AssessmentWorkspace key={user.email} initialPlantId={plantId} canAssess={hasPermission('farming_assessment:update')} />
       : <div className="card" role="status">실제 계정으로 로그인하면 담당 발전소의 계획과 평가 이력을 확인할 수 있습니다.</div>}
   </div>
 }

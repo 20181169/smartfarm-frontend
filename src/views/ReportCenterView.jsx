@@ -19,12 +19,14 @@ function ErrorBox({ error, retry }) {
   return <div className="report-message report-error" role="alert">{error}{retry && <div><button className="icon-btn" onClick={retry}>다시 불러오기</button></div>}</div>
 }
 function Download({ report }) {
+  const { hasPermission } = useApp()
+  const allowed = hasPermission('report:download')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const active = useRef(null)
   useEffect(() => () => active.current?.abort(), [])
   const download = async () => {
-    if (active.current) return
+    if (!allowed || active.current) return
     const controller = new AbortController()
     active.current = controller
     setBusy(true); setError('')
@@ -43,12 +45,15 @@ function Download({ report }) {
       if (!controller.signal.aborted) { active.current = null; setBusy(false) }
     }
   }
+  if (!allowed) return null
   return <div><button className="icon-btn" disabled={busy} onClick={download}><FileDown size={14} />{busy ? '다운로드 중…' : 'PDF 다운로드'}</button>{error && <ErrorBox error={error} />}</div>
 }
 function Evidence({ evidence }) {
+  const { hasPermission } = useApp()
+  const canView = hasPermission('vision:read')
   const [open, setOpen] = useState(false)
   const [state, setState] = useState({})
-  const imageType = evidence.annotated_image_url ? 'annotated' : evidence.source_image_url ? 'source' : null
+  const imageType = !canView ? null : evidence.annotated_image_url ? 'annotated' : evidence.source_image_url ? 'source' : null
   useEffect(() => {
     if (!open || !imageType) return undefined
     const controller = new AbortController()
@@ -62,7 +67,7 @@ function Evidence({ evidence }) {
   }, [open, imageType, evidence.analysis_id])
   return <div className="report-evidence">
     <div className="report-row"><span>{time(evidence.evidence_at)} · {STATUSES[evidence.status] || evidence.status}</span>
-      {imageType ? <button className="icon-btn" aria-expanded={open} onClick={() => setOpen(!open)}>{open ? '증빙 닫기' : '증빙 이미지 보기'}</button> : <span className="text-muted">저장된 이미지 없음</span>}</div>
+      {imageType ? <button className="icon-btn" aria-expanded={open} onClick={() => setOpen(!open)}>{open ? '증빙 닫기' : '증빙 이미지 보기'}</button> : <span className="text-muted">{canView ? '저장된 이미지 없음' : '증빙 이미지 조회 권한 없음'}</span>}</div>
     <p className="report-copy">탐지: {evidence.detections?.length ? evidence.detections.map((d) => `${d.label}${Number.isFinite(d.confidence) ? ` ${(d.confidence * 100).toFixed(1)}%` : ''}`).join(' · ') : '탐지 객체 없음'}</p>
     {evidence.latest_review && <p className="report-copy">최근 검토: {STATUSES[evidence.latest_review.new_status] || evidence.latest_review.new_status} · {evidence.latest_review.comment || '의견 없음'}</p>}
     {open && (state.loading ? <p role="status">증빙을 불러오는 중입니다.</p> : state.error ? <ErrorBox error={state.error} /> : state.url && <img src={state.url} alt="보고서 영농활동 AI 증빙" />)}
@@ -104,6 +109,8 @@ function ReportBody({ data }) {
   </>
 }
 function ReportPreview({ query, onBusy, onGenerated }) {
+  const { hasPermission } = useApp()
+  const canGenerate = hasPermission('report:generate')
   const [state, setState] = useState({ loading: true })
   const [reload, setReload] = useState(0)
   const [busy, setBusy] = useState(false)
@@ -122,7 +129,7 @@ function ReportPreview({ query, onBusy, onGenerated }) {
     return () => controller.abort()
   }, [query, reload])
   const generate = async () => {
-    if (posting.current || !state.data) return
+    if (!canGenerate || posting.current || !state.data) return
     posting.current = true; setBusy(true); onBusy(true); setError(''); setGenerated(null)
     try {
       const report = await apiGenerateFarmingReport(query)
@@ -136,7 +143,7 @@ function ReportPreview({ query, onBusy, onGenerated }) {
     }
   }
   return <section className="card" aria-label="보고서 조회 결과">
-    <div className="report-row"><h2 className="card-title">영농이행 보고서</h2><button className="btn-terracotta" disabled={busy || !state.data} onClick={generate}><FileCheck2 size={15} />{busy ? 'PDF 생성 중…' : 'PDF 보고서 생성'}</button></div>
+    <div className="report-row"><h2 className="card-title">영농이행 보고서</h2>{canGenerate && <button className="btn-terracotta" disabled={busy || !state.data} onClick={generate}><FileCheck2 size={15} />{busy ? 'PDF 생성 중…' : 'PDF 보고서 생성'}</button>}</div>
     <p className="text-muted">PDF는 생성 시점의 최신 데이터로 만들어져 서버에 보관됩니다.</p>
     {busy && <p role="status">PDF를 생성하고 있습니다. 완료될 때까지 기다려 주세요.</p>}
     {error && <ErrorBox error={error} />}

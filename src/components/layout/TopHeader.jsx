@@ -8,7 +8,7 @@ export default function TopHeader({ onToggleNav, onOpenAuth }) {
     plant, plantId, plantList, selectPlant, canSwitchPlant, user, logout, theme, toggleTheme, connected, isLive, liveState,
   } = useApp()
   // 현재 선택 발전소가 목록에 없으면(데모↔백엔드 전환 직후) 앞에 붙여 셀렉터 값 불일치 방지.
-  const options = plantList.some((p) => p.id === plantId) ? plantList : [plant, ...plantList]
+  const options = user?.source === 'api' ? plantList : plantList.some((p) => p.id === plantId) ? plantList : [plant, ...plantList]
   const [stamp, setStamp] = useState(nowStamp())
 
   useEffect(() => {
@@ -30,7 +30,7 @@ export default function TopHeader({ onToggleNav, onOpenAuth }) {
           value={plantId}
           disabled={!canSwitchPlant}
           onChange={(e) => selectPlant(e.target.value)}
-          title={canSwitchPlant ? '발전소 선택' : '담당 발전소 전용 계정입니다'}
+          title={canSwitchPlant ? '발전소 선택' : '선택 가능한 발전소가 없거나 한 곳입니다'}
         >
           {options.map((p) => (
             <option key={p.id} value={p.id}>

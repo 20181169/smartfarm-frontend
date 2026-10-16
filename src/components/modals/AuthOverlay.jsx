@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { X, Wifi, WifiOff } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useApp } from '../../context/useApp'
-import { menuRoleOf, isSupervisorRole } from '../../lib/roles'
+import { menuRoleOf } from '../../lib/roles'
+import { hasPermission } from '../../lib/permissions'
 
 // 로그인 역할 선택 — 통합 버전과 동일한 역할 구성.
 // group(메뉴 역할): 'owner'(발전사업자) | 'official'(지자체 감독관) | 'admin'(최고 관리자). email 은 실로그인 시 프리필.
@@ -25,7 +26,7 @@ export default function AuthOverlay({ onClose, notice = '' }) {
 
   const pickRole = (r) => { setRoleKey(r.key); setEmail(r.email); setError('') }
   // 관리자·감독관은 종합대시보드, 발전사업자는 현재상태로 시작 (통합 버전과 동일)
-  const goHome = (menuRole) => navigate(isSupervisorRole(menuRole) ? '/oversight' : '/')
+  const goHome = (u) => navigate(menuRoleOf(u) !== 'owner' && hasPermission(u, 'plant:read') ? '/oversight' : '/')
 
   const doLogin = async (e) => {
     e.preventDefault()
@@ -33,7 +34,7 @@ export default function AuthOverlay({ onClose, notice = '' }) {
     setLoading(true)
     try {
       const u = await apiSignIn(email, pw)
-      goHome(menuRoleOf(u))
+      goHome(u)
       onClose()
     } catch (err) {
       setError(
@@ -48,7 +49,7 @@ export default function AuthOverlay({ onClose, notice = '' }) {
 
   const doDemo = () => {
     login({ name: role.name, role: role.group === 'owner' ? '발전사업자' : '관리자', source: 'demo', demoRole: role.group })
-    goHome(role.group)
+    navigate('/')
     onClose()
   }
 

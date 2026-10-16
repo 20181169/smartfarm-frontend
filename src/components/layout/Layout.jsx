@@ -6,7 +6,7 @@ import Sidebar from './Sidebar'
 import AuthOverlay from '../modals/AuthOverlay'
 
 export default function Layout() {
-  const { sessionExpired, clearSessionExpired } = useApp()
+  const { sessionExpired, clearSessionExpired, user } = useApp()
   const [navOpen, setNavOpen] = useState(false)
   const [authOpen, setAuthOpen] = useState(false)
 
@@ -22,6 +22,7 @@ export default function Layout() {
       <TopHeader onToggleNav={() => setNavOpen((v) => !v)} onOpenAuth={() => setAuthOpen(true)} />
       <Sidebar open={navOpen} onClose={() => setNavOpen(false)} />
       <main className="main">
+        {user?.source === 'api' && !user.permissionsLoaded && <div className="card" role="alert">서버에서 권한 목록을 받지 못했습니다. 권한 연동이 필요한 기능은 사용할 수 없습니다. 백엔드 업데이트 후 다시 로그인해 주세요.</div>}
         <Outlet />
       </main>
       {showAuth && (

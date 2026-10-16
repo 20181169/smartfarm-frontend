@@ -37,7 +37,7 @@ function StatTile({ label, value, color, active, clickable, onClick }) {
 }
 
 export default function OversightView() {
-  const { connected, isSupervisor } = useApp()
+  const { connected, hasPermission } = useApp()
   const mapRef = useRef(null)
   const mapObj = useRef(null)
   const groupRef = useRef(null)
@@ -139,16 +139,15 @@ export default function OversightView() {
     if (pts.length) map.fitBounds(pts, { padding: [45, 45], maxZoom: source === 'backend' ? 11 : 9.5, animate: true })
   }, [mapSites, source, mapReady])
 
-  // 감독 권한 없는 계정(운영자/조회전용)은 접근 차단
-  if (!isSupervisor) {
+  // 서버가 제공한 발전소 조회 권한을 확인한다.
+  if (!hasPermission('plant:read')) {
     return (
       <div className="view stack">
         <div className="card" style={{ textAlign: 'center', padding: '48px 20px' }}>
           <Lock size={40} style={{ color: 'var(--text-3)', marginBottom: 12 }} />
           <div style={{ fontSize: 17, fontWeight: 800, marginBottom: 6 }}>접근 권한이 없습니다</div>
           <div className="text-muted" style={{ fontSize: 13, lineHeight: 1.6 }}>
-            영농이행 감독 화면은 <b>감독 권한(시스템·지자체 관리자, 현장 점검자)</b> 계정만 이용할 수 있습니다.<br />
-            현재 계정은 조회/운영 권한입니다.
+            발전소 조회 권한이 필요합니다.
           </div>
         </div>
       </div>

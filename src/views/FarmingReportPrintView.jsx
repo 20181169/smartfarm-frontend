@@ -9,10 +9,11 @@ import {
 } from 'react-router-dom'
 
 import {
-  apiFarmingReportData,
+  apiFarmingReportData, apiGetMe,
 } from '../lib/api'
 
 import './FarmingReportPrintView.css'
+import { currentUser, hasPermission } from '../lib/permissions'
 
 
 const ASSESSMENT_LABEL = {
@@ -282,6 +283,8 @@ export default function FarmingReportPrintView() {
       }
 
       try {
+        const user = currentUser(await apiGetMe())
+        if (!hasPermission(user, 'report:read')) throw new Error('보고서 조회 권한이 없습니다.')
         const data =
           await apiFarmingReportData({
             plantId,

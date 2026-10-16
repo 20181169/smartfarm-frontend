@@ -26,7 +26,7 @@ function capture(video) {
 
 // 비전 분석 API 가 배포되지 않은 서버(404)면 'Not Found' 대신 원인을 안내
 const visionMessage = (e) =>
-  e?.status === 404 ? '이 서버에는 비전 분석 API(/vision)가 아직 배포되지 않았습니다.' : e.message
+  e?.status === 403 ? 'AI 분석 또는 조회 권한이 없습니다.' : e?.status === 404 ? '이 서버에는 비전 분석 API(/vision)가 아직 배포되지 않았습니다.' : e.message
 
 function seekVideo(video, time) {
   return new Promise((resolve, reject) => {
@@ -53,7 +53,8 @@ function seekVideo(video, time) {
 }
 
 export default function CctvEvidenceView() {
-  const { user } = useApp()
+  const { user, hasPermission } = useApp()
+  const canRun = hasPermission('vision:run')
   const [plants, setPlants] = useState([])
   const [plantId, setPlantId] = useState('')
   const [cameras, setCameras] = useState([])
@@ -108,7 +109,7 @@ export default function CctvEvidenceView() {
   }
 
   async function analyze() {
-    if (pending.current) return
+    if (!canRun || pending.current) return
     const version = sequence.current
     pending.current = true; setBusy(true); setError('')
     const abort = new AbortController()
@@ -139,7 +140,7 @@ export default function CctvEvidenceView() {
 
   async function startContinuous() {
     const node = video.current
-    if (!node || media?.type !== 'video' || runningRef.current) return
+    if (!canRun || !node || media?.type !== 'video' || runningRef.current) return
     node.pause()
     if (node.ended || node.currentTime >= node.duration - 0.05) await seekVideo(node, 0)
     runningRef.current = true
@@ -194,7 +195,7 @@ export default function CctvEvidenceView() {
     setTimeout(() => URL.revokeObjectURL(url), 1000)
   }
 
-  const canAnalyze = authenticated && plantId && (mode === 'camera' ? cameraId : media && ready)
+  const canAnalyze = canRun && authenticated && plantId && (mode === 'camera' ? cameraId : media && ready)
   const selectedResult = selectedFrameId ? history.find(row => row.frame_id === selectedFrameId) : null
   const displayedResult = selectedResult || latestResult
   const sourceTime = displayedResult?.video_position != null ? `녹화 ${displayedResult.video_position.toFixed(1)}초` : displayedResult?.captured_at ? new Date(displayedResult.captured_at).toLocaleString('ko-KR') : '촬영시각 미제공'
@@ -234,8 +235,9 @@ export default function CctvEvidenceView() {
         <div className="tractor-controls">
           <label>탐지 기준 점수 <b>{threshold.toFixed(2)}</b><input aria-label="탐지 기준 점수" type="range" min="0.1" max="0.9" step="0.05" value={threshold} disabled={busy || running} onChange={e => setThreshold(Number(e.target.value))} /></label>
           <div className="tractor-buttons">
-            <button className="btn-primary" disabled={!canAnalyze || busy || running} onClick={analyze}><ScanLine size={16} />{busy ? '분석 중…' : '현재 프레임 분석'}</button>
-            {running || busy ? <button className="icon-btn" onClick={stop}><Square size={16} /> 중지</button> : <button className="icon-btn" disabled={!canAnalyze || mode !== 'file' || media?.type !== 'video'} onClick={startContinuous}><Play size={16} /> 연속 분석</button>}
+            {canRun && <button className="btn-primary" disabled={!canAnalyze || busy || running} onClick={analyze}><ScanLine size={16} />{busy ? '분석 중…' : '현재 프레임 분석'}</button>}
+            {canRun && (running || busy ? <button className="icon-btn" onClick={stop}><Square size={16} /> 중지</button> : <button className="icon-btn" disabled={!canAnalyze || mode !== 'file' || media?.type !== 'video'} onClick={startContinuous}><Play size={16} /> 연속 분석</button>)}
+            {!canRun && <p role="status">조회 전용 계정입니다. AI 분석 실행 권한이 없습니다.</p>}
           </div>
           <p className="text-muted">{running ? '영상 시간을 2초씩 이동하며 순서대로 분석합니다.' : '최초 분석은 모델 준비로 오래 걸릴 수 있습니다.'} 탐지 점수는 정확도 보증값이 아닙니다.</p>
         </div>

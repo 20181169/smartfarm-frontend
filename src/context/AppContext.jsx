@@ -5,10 +5,11 @@ import { smpWon, recWon } from '../lib/format'
 import { RPS_PRICE } from '../data/market'
 import { hasKpxKey, loadMarket, peekMarket, smpNow, recSummary } from '../lib/kpx'
 import {
-  apiLogin, apiGetMe, apiGetPlants, apiPlantLive, apiGetRoles, apiGetDevices, mapPlant, setToken, getToken,
+  apiLogin, apiGetMe, apiGetPlants, apiPlantLive, apiGetDevices, mapPlant, setToken, getToken,
   AUTH_EXPIRED_EVENT,
 } from '../lib/api'
-import { menuRoleOf, isSupervisorRole } from '../lib/roles'
+import { menuRoleOf } from '../lib/roles'
+import { currentUser, hasPermission as userHasPermission } from '../lib/permissions'
 import { AppContext } from './useApp'
 
 // 인버터 모델 표기: 장비 목록(관리자 등 device:read 권한)이 있으면 실제 모델, 없으면 실시간 수신 대수만
@@ -16,19 +17,6 @@ function inverterModelLabel(devices, liveCount) {
   const models = (devices || []).filter((d) => d.device_type === 'inverter').map((d) => d.model || '모델 미등록')
   if (models.length) return `${[...new Set(models)].join(', ')} (${models.length}대)`
   return liveCount ? `${liveCount}대 (모델 정보 없음)` : null
-}
-
-// role_id → 역할 정보(role_code/role_name/level) 해석. 실패해도 로그인은 유지.
-async function resolveRole(me) {
-  if (!me?.role_id) return {}
-  try {
-    const data = await apiGetRoles()
-    const role = (data?.items || []).find((r) => r.role_id === me.role_id)
-    if (role) return { roleCode: role.role_code, roleName: role.role_name, level: role.level }
-  } catch {
-    /* 역할 조회 실패 시 무시 */
-  }
-  return {}
 }
 
 const MOCK_LIST = Object.values(PLANTS)
@@ -83,11 +71,11 @@ export function AppProvider({ children }) {
   const [liveState, setLiveState] = useState('idle') // idle | loading | ok | empty(계측 데이터 없음) | error
   const [devices, setDevices] = useState(null) // 선택 발전소 장비 목록(조회 권한 없으면 null — 뷰어 403)
 
-  // 선택 가능한 발전소: 연결되면 백엔드 실발전소, 아니면 목(데모).
+  // 실계정은 서버가 반환한 관할 발전소만 선택한다. 데모 목록은 데모에서만 사용한다.
   const backendDisplay = useMemo(() => backendPlants.map(toDisplayPlant), [backendPlants])
   const plantList = useMemo(
-    () => (connected && backendDisplay.length ? backendDisplay : MOCK_LIST),
-    [connected, backendDisplay]
+    () => user?.source === 'api' ? backendDisplay : MOCK_LIST,
+    [user?.source, backendDisplay]
   )
   // id → plant 사전 (목 + 백엔드 모두 포함 → 어느 쪽이든 선택 가능)
   const catalog = useMemo(() => {
@@ -153,10 +141,10 @@ export function AppProvider({ children }) {
       const items = data?.items || []
       setBackendPlants(items.map(mapPlant))
       setConnected(items.length > 0)
-      // 목 발전소를 보고 있었다면 첫 실발전소로 자동 전환(수동 선택은 유지).
+      // 현재 선택이 서버의 허용 목록에 없으면 첫 허용 발전소로 전환한다.
       if (items.length) {
         const firstId = items[0].plant_id
-        setPlantId((prev) => (PLANTS[prev] ? firstId : prev))
+        setPlantId((prev) => items.some((p) => p.plant_id === prev) ? prev : firstId)
       }
     } catch {
       setConnected(false)
@@ -172,8 +160,7 @@ export function AppProvider({ children }) {
       .then(async (me) => {
         if (!alive) return
         if (me) {
-          const roleInfo = await resolveRole(me)
-          if (alive) setUser({ name: me.name, email: me.email, role: '관리자', source: 'api', ...roleInfo })
+          if (alive) setUser(currentUser(me))
         }
         refreshBackend()
       })
@@ -401,10 +388,9 @@ export function AppProvider({ children }) {
 
   const selectPlant = useCallback(
     (id) => {
-      if (user?.role === '발전사업자') return
-      if (catalog[id]) setPlantId(id)
+      if (plantList.some((p) => p.id === id)) setPlantId(id)
     },
-    [user, catalog]
+    [plantList]
   )
 
   const toggleTheme = useCallback(() => {
@@ -417,8 +403,7 @@ export function AppProvider({ children }) {
     async (email, password) => {
       await apiLogin(email, password)
       const me = await apiGetMe()
-      const roleInfo = await resolveRole(me)
-      const u = { name: me?.name || email, email: me?.email || email, role: '관리자', source: 'api', ...roleInfo }
+      const u = currentUser(me)
       setUser(u)
       await refreshBackend()
       return u
@@ -450,6 +435,7 @@ export function AppProvider({ children }) {
 
   // 역할 메뉴 그룹: admin(시스템 관리자) | official(지자체 감독관) | owner(발전사업자)
   const menuRole = menuRoleOf(user)
+  const hasPermission = useCallback((code) => userHasPermission(user, code), [user])
 
   const value = {
     plantId,
@@ -464,8 +450,7 @@ export function AppProvider({ children }) {
     menuRole,
     isLive: !!(plant && plant._live),
     liveState, // 백엔드 발전소 계측 조회 상태: loading | ok | empty(데이터 없음) | error
-    // 감독 권한 = 시스템 관리자 또는 지자체 감독관 (실계정 level≤60, 또는 데모에서 감독관/관리자 선택).
-    isSupervisor: isSupervisorRole(menuRole),
+    hasPermission,
     selectPlant,
     toggleTheme,
     login,
@@ -474,7 +459,7 @@ export function AppProvider({ children }) {
     sessionExpired, // 로그인 만료로 자동 로그아웃됨 → 재로그인 안내
     clearSessionExpired,
     refreshBackend,
-    canSwitchPlant: user?.role !== '발전사업자',
+    canSwitchPlant: plantList.length > 1,
   }
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>
