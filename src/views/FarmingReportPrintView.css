@@ -68,7 +68,6 @@
 .report-farming-demo { border: 1px solid #b6cbc5; border-top: 3px solid var(--report-accent); padding: 4mm 5mm; background: #f5f9f7; }
 .report-demo-heading { display: flex; justify-content: space-between; align-items: center; gap: 4mm; }
 .report-demo-heading h2 { margin: 0; font-size: 12pt; }
-.report-demo-heading > span { padding: .7mm 2mm; border: 1px solid #b6cbc5; background: white; color: #526b65; font-size: 8pt; }
 .report-demo-metrics { display: grid; grid-template-columns: 1fr 1fr; margin: 3mm 0; }
 .report-demo-metrics > div { padding: 1mm 4mm; }
 .report-demo-metrics > div:first-child { padding-left: 0; border-right: 1px solid #cbdad5; }
@@ -83,7 +82,6 @@
 .report-farming-stages b { font-size: 9pt; }
 .report-farming-stages small { display: block; font-size: 7.5pt; color: var(--report-muted); }
 .report-farming-stages .completed small { color: var(--report-accent); font-weight: 700; }
-.report-farming-demo .report-demo-note { font-size: 7.5pt; color: var(--report-muted); margin-top: 2mm; }
 .report-stat { padding: 4mm; border-right: 1px solid #d5dfdc; }
 .report-stat:last-child { border-right: 0; }
 .report-stat > span { display: block; color: #42585a; font-size: 9pt; font-weight: 600; }
@@ -101,9 +99,6 @@
 .report-progress-track span { display: block; height: 100%; background: var(--report-accent); }
 .report-outcomes { display: flex; justify-content: space-between; font-size: 9pt; }
 .report-outcomes b { font-size: 12pt; margin: 0 1mm; }
-.report-progress-panel .report-footnote { margin-top: 2mm; font-size: 7.8pt; color: var(--report-muted); }
-.report-notice { border-left: 2px solid #a0b5af; background: #f5f7f7; padding: 3mm 4mm; font-size: 8.5pt; color: #4c6062; }
-.report-lead { font-size: 9.5pt; color: var(--report-muted); padding: 1mm 0 2mm; }
 .report-record-title { display: flex; align-items: start; gap: 3mm; }
 .report-record-title > div { flex: 1; min-width: 0; }
 .report-record-title h3 { font-size: 11pt; line-height: 1.5; font-weight: 700; overflow-wrap: anywhere; flex: 1; }
@@ -147,9 +142,6 @@
 .report-empty { padding: 10mm 5mm; text-align: center; border: 1px dashed var(--report-line); color: var(--report-muted); font-size: 10pt; }
 .report-muted { color: var(--report-muted); font-size: 9pt; }
 .report-missing { padding: 4mm; border: 1px solid var(--report-line); font-size: 9pt; }
-.report-missing > span { display: block; margin-top: 2mm; color: var(--report-muted); font-size: 8.5pt; }
-.report-notes { margin: 0; padding: 0 0 0 5mm; font-size: 9pt; color: #42585a; }
-.report-notes li { padding: 0 0 2mm 1mm; }
 .report-measure { position: absolute; left: -10000px; top: 0; visibility: hidden; pointer-events: none; width: 210mm; }
 .report-print-state { padding: 20mm; background: white; min-height: 60vh; }
 @page { size: A4; margin: 0; }

@@ -55,7 +55,6 @@ function Badge({ value, assessment = false }) {
 function Heading({ children, detail }) {
   return <div className="report-subhead"><h2>{children}</h2>{detail && <span>{detail}</span>}</div>
 }
-function Notice({ children }) { return <div className="report-notice">{children}</div> }
 function Empty({ children }) { return <div className="report-empty">{children}</div> }
 function Approval() {
   return <table className="report-approval" aria-label="결재란">
@@ -75,16 +74,16 @@ function CountList({ values }) {
 function FarmingProgressDemo({ report }) {
   const month = /^(\d{4})-(\d{2})/.exec(report.to_date || '')
   const monthLabel = month ? `${month[1]}년 ${Number(month[2])}월` : '해당 월'
-  return <section className="report-farming-demo" aria-label="영농 진행 현황 시연용 예시">
-    <div className="report-demo-heading"><h2>영농 진행 현황</h2><span>시연용 예시 · 고정값</span></div>
+  return <section className="report-farming-demo" aria-label="영농 진행 현황">
+    <div className="report-demo-heading"><h2>영농 진행 현황</h2></div>
     <div className="report-demo-metrics">
       <div><span>파종부터 수확까지 달성률</span><strong>{FARMING_DEMO.achievementPercent}<small>%</small></strong><p>전체 {FARMING_DEMO.stages.length}단계 중 {FARMING_DEMO.completedStages}단계 완료</p></div>
       <div><span>월간 농경활동 횟수</span><strong>{FARMING_DEMO.monthlyActivityCount}<small>회</small></strong><p>{monthLabel} · 보고 종료월 기준</p></div>
     </div>
-    <ol className="report-farming-stages" aria-label="파종부터 수확까지 단계별 진행 예시">
+    <ol className="report-farming-stages" aria-label="파종부터 수확까지 단계별 진행">
       {FARMING_DEMO.stages.map((stage, index) => <li key={stage} className={index < FARMING_DEMO.completedStages ? 'completed' : ''}><span>{String(index + 1).padStart(2, '0')}</span><b>{stage}</b><small>{index < FARMING_DEMO.completedStages ? '완료' : '예정'}</small></li>)}
     </ol>
-    <p className="report-demo-note">위 달성률·활동 횟수는 화면 시연을 위한 고정 예시이며, 실제 활동 집계나 최종평가 결과가 아닙니다.</p>
+
   </section>
 }
 
@@ -104,45 +103,41 @@ function buildSections(report) {
     <div className="report-cover-top"><div className="report-brand">K 에너지 솔루션<span>영농형 태양광 통합 관제</span></div><Approval /></div>
     <div className="report-cover-title"><p>영농형 태양광 · 정기점검</p><h1>영농이행 점검 보고서</h1><span>영농계획 · 활동 기록 · 영상 증빙 · 검토 결과</span></div>
     <dl className="report-period"><Field title="보고 대상 기간">{text(report.from_date)} — {text(report.to_date)}</Field><Field title="집계 기준일">{text(report.as_of_date)}</Field></dl>
-    <Heading detail="서버에 등록된 사업장 정보">사업장 개요</Heading>
+    <Heading>사업장 개요</Heading>
     <dl className="report-property-grid"><Field title="사업장명">{text(plant.name || report.plant_id)}</Field><Field title="소재지">{text(plant.address)}</Field><Field title="설비용량">{metric(plant.capacity_kw, 'kW')}</Field><Field title="사업장 면적">{metric(plant.area_m2, 'm²')}</Field></dl>
     <Heading detail="보고 대상 기간 기준">주요 집계</Heading>
     <div className="report-stats cover-stats"><Stat title="영농계획" value={report.total_plans ?? plans.length} /><Stat title="확정 영농활동" value={activity.confirmed_event_count} /><Stat title="영상 증빙" value={activity.vision_evidence_count} /><Stat title="최종평가 완료" value={completed} /></div>
     <div className="report-progress-panel"><div className="report-progress-title"><div><h2>평가 완료율</h2><p>조회된 계획 {number(plans.length)}건 중 최종평가 {number(completed)}건</p></div><strong>{number(rate)}<small>%</small></strong></div>
       <div className="report-progress-track" role="img" aria-label={`평가 완료율 ${numeric(rate) ? rate + '%' : '산정 대상 없음'}`}><span style={{ width: `${rate ?? 0}%` }} /></div>
       <div className="report-outcomes"><span>이행 <b>{number(counts.fulfilled)}</b>건</span><span>미이행 <b>{number(counts.not_fulfilled)}</b>건</span><span>판단 불가 <b>{number(counts.unable_to_determine)}</b>건</span><span>평가 전 <b>{number(counts.pending)}</b>건</span></div>
-      <p className="report-footnote">평가 완료에는 ‘판단 불가’를 포함합니다. 위 비율은 영농 이행률이 아닙니다.</p>
+
     </div>
-    <Notice>본 보고서는 등록된 계획·활동·증빙 및 사람의 평가 기록을 정리한 문서입니다. AI 탐지 결과만으로 영농이행 여부를 자동 판정하지 않습니다.</Notice>
   </div>
 
   const planBlocks = [
     block(<FarmingProgressDemo report={report} />),
-    block(<><Heading detail="실제 API 조회 결과">등록 계획 및 평가 기록</Heading><AssessmentStats counts={counts} /></>, plans.length > 0),
+    block(<><Heading>등록 계획 및 평가 기록</Heading><AssessmentStats counts={counts} /></>, plans.length > 0),
   ]
   plans.forEach((plan, i) => planBlocks.push(block(<article className="report-plan-row" data-record="plan"><div className="report-record-title"><span className="report-index">{String(i + 1).padStart(2, '0')}</span><div><h3>{text(plan.title)}</h3><p>{label(plan.activity_type)}</p></div><Badge value={plan.final_assessment} assessment /></div>
     <dl className="report-plan-fields"><Field title="계획 기간">{text(plan.planned_start_date)} ~ {text(plan.planned_end_date)}</Field><Field title="유효 연결 활동"><b className="report-inline-number">{number(plan.valid_event_count)}</b> 건</Field><Field title="진행 단계">{PHASES[plan.phase] || text(plan.phase)}</Field></dl></article>)))
   if (!plans.length) planBlocks.push(block(<Empty>해당 기간에 등록된 영농계획이 없습니다.</Empty>))
-  planBlocks.push(block(<Notice>계획 기간과 진행 단계는 서버 조회 결과입니다. 제외된 계획도 조회 목록에 포함된 경우 표시하며, 미평가 상태를 미이행으로 간주하지 않습니다.</Notice>))
 
-  const imageBlocks = [block(<><p className="report-lead">보고서 데이터에 포함된 검증 이미지를 원본 비율로 표시합니다.</p><div className="report-stats three"><Stat title="전체 영상 증빙" value={activity.vision_evidence_count} /><Stat title="PDF 포함 이미지" value={images.length} unit="장" /><Stat title="이미지 없는 증빙" value={evidence.filter(item => !item.report_image_data_url).length} /></div><div className="report-detection-summary"><b>확정 탐지 객체</b><CountList values={activity.confirmed_detection_counts} /></div></>, false)]
+  const imageBlocks = [block(<><div className="report-stats three"><Stat title="전체 영상 증빙" value={activity.vision_evidence_count} /><Stat title="PDF 포함 이미지" value={images.length} unit="장" /><Stat title="이미지 없는 증빙" value={evidence.filter(item => !item.report_image_data_url).length} /></div><div className="report-detection-summary"><b>확정 탐지 객체</b><CountList values={activity.confirmed_detection_counts} /></div></>, false)]
   images.forEach((item, i) => {
     imageBlocks.push(block(<article className="report-evidence-card" data-record="evidence"><div className="report-record-title"><h3>증빙 {String(i + 1).padStart(2, '0')}</h3><Badge value={item.status} /></div><div className="report-image-frame"><img src={item.report_image_data_url} alt={`영상 증빙 ${i + 1}`} data-report-evidence-image="true" /></div><dl className="report-image-fields"><Field title="연결 활동">{text(item.event_title)}</Field><Field title="촬영 / 분석 시각">{timestamp(item.evidence_at)}</Field><Field title="분석 식별번호">{text(item.analysis_id)}</Field><Field title="이미지 구분">{item.report_image_type === 'annotated' ? '탐지 표시 이미지' : '원본 이미지'}</Field></dl></article>))
     const detections = list(item.detections)
     for (let start = 0; start < detections.length; start += 12) imageBlocks.push(block(<div className="report-detection-detail"><span>증빙 {i + 1} · 객체별 예측 신뢰도</span><div className="report-count-list">{detections.slice(start, start + 12).map((d, j) => <span key={j}>{label(d.label)} <b>{confidence(d.confidence)}</b></span>)}</div></div>))
   })
   if (!images.length) imageBlocks.push(block(<Empty>PDF에 포함된 증빙 이미지가 없습니다. 영상 증빙 건수와 이미지 포함 건수는 다를 수 있습니다.</Empty>))
-  imageBlocks.push(block(<Notice>이미지는 보고서 생성 시 서버에서 검증·포함한 자료만 표시합니다. 탐지 신뢰도는 객체 예측 수치이며, 영농이행 점수가 아닙니다.</Notice>))
 
-  const eventBlocks = [block(<><p className="report-lead">각 계획에 연결된 영농활동의 기간·상태·증빙을 정리합니다.</p><div className="report-stats three"><Stat title="연결 영농활동" value={activity.matched_event_count} /><Stat title="확정 영농활동" value={activity.confirmed_event_count} /><Stat title="무효화 영농활동" value={activity.invalidated_event_count} /></div></>, events.length > 0)]
+  const eventBlocks = [block(<><div className="report-stats three"><Stat title="연결 영농활동" value={activity.matched_event_count} /><Stat title="확정 영농활동" value={activity.confirmed_event_count} /><Stat title="무효화 영농활동" value={activity.invalidated_event_count} /></div></>, events.length > 0)]
   events.forEach((event, i) => {
     eventBlocks.push(block(<article className="report-event-card" data-record="event"><div className="report-record-title"><span className="report-index">{String(i + 1).padStart(2, '0')}</span><div><h3>{text(event.title)}</h3><p>연결 계획: {text(event.plan_title)}</p></div><Badge value={event.event_status} /></div><dl className="report-property-grid"><Field title="활동유형">{label(event.activity_type)}</Field><Field title="영상 증빙"><b className="report-inline-number">{number(event.vision_evidence_count)}</b> 건</Field><Field title="활동 시작">{timestamp(event.started_at)}</Field><Field title="활동 종료">{timestamp(event.ended_at)}</Field></dl></article>))
     paragraphs(event.description).forEach((part, n) => eventBlocks.push(block(<div className="report-description"><b>활동 {i + 1} · 상세 기록{n ? ' (계속)' : ''}</b><p>{part}</p></div>)))
   })
   if (!events.length) eventBlocks.push(block(<Empty>계획에 연결된 영농활동이 없습니다.</Empty>))
-  eventBlocks.push(block(<Notice>동일 활동이 여러 계획에 연결된 경우 계획별로 표시됩니다. 상단 집계는 서버가 제공한 값을 사용합니다.</Notice>))
 
-  const assessmentBlocks = [block(<><p className="report-lead">시스템에 저장된 사람의 최종평가와 영상 검토 기록입니다.</p><AssessmentStats counts={counts} /><Heading>계획별 최종평가</Heading></>, plans.length > 0)]
+  const assessmentBlocks = [block(<><AssessmentStats counts={counts} /><Heading>계획별 최종평가</Heading></>, plans.length > 0)]
   plans.forEach(plan => assessmentBlocks.push(block(<article className="report-assessment-row" data-record="assessment"><div className="report-record-title"><h3>{text(plan.title)}</h3><Badge value={plan.final_assessment} assessment /></div><dl className="report-plan-fields"><Field title="계획 기간">{text(plan.planned_start_date)} ~ {text(plan.planned_end_date)}</Field><Field title="유효 연결 활동"><b className="report-inline-number">{number(plan.valid_event_count)}</b> 건</Field><Field title="최근 평가 시각">{plan.latest_assessed_at ? timestamp(plan.latest_assessed_at) : '평가 기록 없음'}</Field></dl></article>)))
   if (!plans.length) assessmentBlocks.push(block(<Empty>평가 대상 계획이 없습니다.</Empty>))
   assessmentBlocks.push(block(<Heading detail="증빙별 최근 검토 기록">영상 증빙 검토</Heading>, reviews.length > 0))
@@ -152,10 +147,9 @@ function buildSections(report) {
   })
   if (!reviews.length) assessmentBlocks.push(block(<Empty>표시할 영상 검토 기록이 없습니다.</Empty>))
 
-  const notesBlocks = [block(<><p className="report-lead">보고서 조회 조건과 데이터 제공 범위를 기록합니다.</p><Heading>조회 및 집계 기준</Heading><dl className="report-property-grid"><Field title="사업장 식별번호">{text(report.plant_id)}</Field><Field title="보고 대상 기간">{text(report.from_date)} ~ {text(report.to_date)}</Field><Field title="집계 기준일">{text(report.as_of_date)}</Field><Field title="활동유형 필터">{report.activity_type ? label(report.activity_type) : '전체'}</Field><Field title="위도">{text(plant.lat)}</Field><Field title="경도">{text(plant.lng)}</Field></dl></>),
+  const notesBlocks = [block(<><Heading>조회 및 집계 기준</Heading><dl className="report-property-grid"><Field title="사업장 식별번호">{text(report.plant_id)}</Field><Field title="보고 대상 기간">{text(report.from_date)} ~ {text(report.to_date)}</Field><Field title="집계 기준일">{text(report.as_of_date)}</Field><Field title="활동유형 필터">{report.activity_type ? label(report.activity_type) : '전체'}</Field><Field title="위도">{text(plant.lat)}</Field><Field title="경도">{text(plant.lng)}</Field></dl></>),
     block(<><Heading>확정 활동 · 객체 집계</Heading><div className="report-summary-line"><b>활동유형</b><CountList values={activity.confirmed_activity_type_counts} /></div><div className="report-summary-line"><b>탐지 객체</b><CountList values={activity.confirmed_detection_counts} /></div></>),
-    block(<><Heading>추가 정보 연계 현황</Heading><div className="report-missing"><p>허가번호 · 관리기관 · 신고 재배작물 · 실제 재배작물 · 실경작 면적 · 행정 최종조치</p><span>현재 보고서 양식에는 위 항목이 연결되어 있지 않습니다. 원본 시스템에 정보가 없다는 의미는 아닙니다.</span></div></>),
-    block(<><Heading>작성 기준 및 확인사항</Heading><ol className="report-notes"><li>최종 이행 여부는 사람의 평가 기록을 따릅니다. 평가 전·판단 불가 상태를 이행 또는 미이행으로 바꾸어 표시하지 않습니다.</li><li>미등록 수치는 임의의 값이나 0으로 보완하지 않습니다. 계획·활동 제목과 검토 의견은 저장된 원문을 표시합니다.</li><li>이 문서는 생성 시점의 조회 결과입니다. 이후 수정된 기록은 새로 생성한 보고서에 반영됩니다.</li><li>첫 페이지 결재란은 출력 후 서명·날인용입니다. 시스템의 전자결재 완료 상태를 나타내지 않습니다.</li></ol></>),
+    block(<><Heading>미연계 항목</Heading><div className="report-missing"><p>허가번호 · 관리기관 · 신고 재배작물 · 실제 재배작물 · 실경작 면적 · 행정 최종조치</p></div></>),
   ]
   return [
     { title: '영농이행 점검 보고서', cover: true, blocks: [block(cover)] },
@@ -163,7 +157,7 @@ function buildSections(report) {
     { title: 'AI 영상 증빙', blocks: imageBlocks },
     { title: '영농활동 상세 기록', blocks: eventBlocks },
     { title: '검토 결과 및 최종평가', blocks: assessmentBlocks },
-    { title: '보고서 정보 및 확인사항', blocks: notesBlocks },
+    { title: '보고서 정보', blocks: notesBlocks },
   ]
 }
 
