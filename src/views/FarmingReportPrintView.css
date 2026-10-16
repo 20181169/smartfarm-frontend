@@ -146,7 +146,6 @@
 .report-review-comment { grid-column: 2; grid-row: 1 / span 2; align-self: center; border-left: 1px solid var(--report-line); padding-left: 4mm; font-size: 9pt; line-height: 1.5; }
 .report-empty { padding: 10mm 5mm; text-align: center; border: 1px dashed var(--report-line); color: var(--report-muted); font-size: 10pt; }
 .report-muted { color: var(--report-muted); font-size: 9pt; }
-.report-missing { padding: 4mm; border: 1px solid var(--report-line); font-size: 9pt; }
 .report-measure { position: absolute; left: -10000px; top: 0; visibility: hidden; pointer-events: none; width: 210mm; }
 .report-print-state { padding: 20mm; background: white; min-height: 60vh; }
 @page { size: A4; margin: 0; }

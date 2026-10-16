@@ -195,7 +195,6 @@ function buildSections(report) {
 
   const notesBlocks = [block(<><Heading>조회 및 집계 기준</Heading><dl className="report-property-grid"><Field title="사업장 식별번호">{text(report.plant_id)}</Field><Field title="보고 대상 기간">{text(report.from_date)} ~ {text(report.to_date)}</Field><Field title="집계 기준일">{text(report.as_of_date)}</Field><Field title="활동유형 필터">{report.activity_type ? label(report.activity_type) : '전체'}</Field><Field title="위도">{text(plant.lat)}</Field><Field title="경도">{text(plant.lng)}</Field></dl></>),
     block(<><Heading>확정 활동 · 객체 집계</Heading><div className="report-summary-line"><b>활동유형</b><CountList values={activity.confirmed_activity_type_counts} /></div><div className="report-summary-line"><b>탐지 객체</b><CountList values={activity.confirmed_detection_counts} /></div></>),
-    block(<><Heading>미연계 항목</Heading><div className="report-missing"><p>허가번호 · 관리기관 · 신고 재배작물 · 실제 재배작물 · 실경작 면적 · 행정 최종조치</p></div></>),
   ]
   return [
     { title: '영농이행 점검 보고서', cover: true, blocks: [block(cover)] },
