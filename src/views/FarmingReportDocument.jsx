@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 
+const REPORT_COMPANY_NAME = '동양연합 엔지니어링'
+const REPORT_COMPANY_LOGO = `${import.meta.env.BASE_URL}logo.png`
+
 const LABELS = {
   machinery_work: '농기계 작업', sowing: '파종', transplanting: '이식',
   irrigation: '관수', fertilization: '시비', harvesting: '수확', harvest: '수확',
@@ -11,10 +14,10 @@ const ASSESSMENTS = { fulfilled: '이행', not_fulfilled: '미이행', unable_to
 const STATES = { draft: '검토 전', confirmed: '확정', cancelled: '취소', candidate: '후보', pending: '검토 대기', rejected: '반려' }
 // Requested presentation values. These are not API results or assessment scores.
 const FARMING_DEMO = {
-  achievementPercent: 60,
   monthlyActivityCount: 8,
   completedStages: 3,
-  stages: ['파종·이앙', '활착', '생육', '출수·개화', '수확'],
+  // rice_stage_single_robust_v2_yolo11n_cls: SOWING, VEGETATIVE, FLOWERING, HARVEST.
+  stages: ['파종', '생육', '개화', '수확'],
 }
 const list = value => Array.isArray(value) ? value : []
 const text = value => value === null || value === undefined || value === '' ? '—' : String(value)
@@ -56,12 +59,40 @@ function Heading({ children, detail }) {
   return <div className="report-subhead"><h2>{children}</h2>{detail && <span>{detail}</span>}</div>
 }
 function Empty({ children }) { return <div className="report-empty">{children}</div> }
-function Approval() {
-  return <table className="report-approval" aria-label="결재란">
-    <tbody><tr><th rowSpan="3" className="report-approval-label">결<br />재</th>{['담당', '검토', '승인'].map(role => <th key={role} scope="col">{role}</th>)}</tr>
-      <tr>{['담당', '검토', '승인'].map(role => <td key={role} aria-label={`${role} 서명란`} className="report-sign-cell" />)}</tr>
-      <tr>{[1, 2, 3].map(i => <td key={i} className="report-sign-date">일자:　　/　　</td>)}</tr></tbody>
-  </table>
+const APPROVAL_STAGES = [
+  { key: 'author', title: '계획 작성', results: { created: '작성완료' } },
+  { key: 'reviewer', title: '활동 검토', results: { confirmed: '검토완료' } },
+  { key: 'final_reviewer', title: '최종 평가', results: { fulfilled: '이행', not_fulfilled: '미이행', unable_to_determine: '판단불가' } },
+]
+
+function Approval({ approval }) {
+  return (
+    <table className="report-approval" aria-label="영농 업무 처리 이력">
+      <thead>
+        <tr>{APPROVAL_STAGES.map(stage => <th key={stage.key} scope="col">{stage.title}</th>)}</tr>
+      </thead>
+      <tbody>
+        <tr>{APPROVAL_STAGES.map(stage => {
+          const actor = approval?.[stage.key]
+          const result = actor?.result
+          const status = result ? stage.results[result] || String(result) : stage.key === 'final_reviewer' ? '미평가' : '-'
+          const processedAt = timestamp(actor?.processed_at)
+          const [date, time] = processedAt === '—' ? ['-'] : processedAt.split(' ')
+          const tone = result === 'not_fulfilled' ? 'negative' : ['created', 'confirmed', 'fulfilled'].includes(result) ? 'positive' : 'neutral'
+          return (
+            <td key={stage.key} data-approval-stage={stage.key}>
+              <strong className="report-approval-name">{actor?.name || '-'}</strong>
+              <span className="report-approval-role">{actor?.role_name || '-'}</span>
+              <div className="report-approval-date">
+                {time ? <time dateTime={actor.processed_at}>{date}<br />{time}</time> : date}
+              </div>
+              <span className={`report-approval-result ${tone}`}>{status}</span>
+            </td>
+          )
+        })}</tr>
+      </tbody>
+    </table>
+  )
 }
 function AssessmentStats({ counts }) {
   return <div className="report-stats"><Stat title="이행" value={counts.fulfilled} tone="positive" /><Stat title="미이행" value={counts.not_fulfilled} tone="negative" /><Stat title="판단 불가" value={counts.unable_to_determine} /><Stat title="평가 전" value={counts.pending} /></div>
@@ -72,15 +103,16 @@ function CountList({ values }) {
 }
 
 function FarmingProgressDemo({ report }) {
+  const achievementPercent = Math.round(FARMING_DEMO.completedStages / FARMING_DEMO.stages.length * 100)
   const month = /^(\d{4})-(\d{2})/.exec(report.to_date || '')
   const monthLabel = month ? `${month[1]}년 ${Number(month[2])}월` : '해당 월'
   return <section className="report-farming-demo" aria-label="영농 진행 현황">
     <div className="report-demo-heading"><h2>영농 진행 현황</h2></div>
     <div className="report-demo-metrics">
-      <div><span>파종부터 수확까지 달성률</span><strong>{FARMING_DEMO.achievementPercent}<small>%</small></strong><p>전체 {FARMING_DEMO.stages.length}단계 중 {FARMING_DEMO.completedStages}단계 완료</p></div>
+      <div><span>파종부터 수확까지 달성률</span><strong>{achievementPercent}<small>%</small></strong><p>전체 {FARMING_DEMO.stages.length}단계 중 {FARMING_DEMO.completedStages}단계 완료</p></div>
       <div><span>월간 농경활동 횟수</span><strong>{FARMING_DEMO.monthlyActivityCount}<small>회</small></strong><p>{monthLabel} · 보고 종료월 기준</p></div>
     </div>
-    <ol className="report-farming-stages" aria-label="파종부터 수확까지 단계별 진행">
+    <ol className="report-farming-stages" style={{ '--report-stage-count': FARMING_DEMO.stages.length }} aria-label="파종부터 수확까지 단계별 진행">
       {FARMING_DEMO.stages.map((stage, index) => <li key={stage} className={index < FARMING_DEMO.completedStages ? 'completed' : ''}><span>{String(index + 1).padStart(2, '0')}</span><b>{stage}</b><small>{index < FARMING_DEMO.completedStages ? '완료' : '예정'}</small></li>)}
     </ol>
 
@@ -100,7 +132,7 @@ function buildSections(report) {
   const rate = plans.length ? Math.round(completed / plans.length * 1000) / 10 : null
   const block = (node, keep = false) => ({ node, keep })
   const cover = <div className="report-cover-content">
-    <div className="report-cover-top"><div className="report-brand">K 에너지 솔루션<span>영농형 태양광 통합 관제</span></div><Approval /></div>
+    <div className="report-cover-top"><div className="report-brand"><img src={REPORT_COMPANY_LOGO} alt="동양연합 로고" /><div><strong>{REPORT_COMPANY_NAME}</strong><span>영농형 태양광 통합 관제</span></div></div><Approval approval={report.approval} /></div>
     <div className="report-cover-title"><p>영농형 태양광 · 정기점검</p><h1>영농이행 점검 보고서</h1><span>영농계획 · 활동 기록 · 영상 증빙 · 검토 결과</span></div>
     <dl className="report-period"><Field title="보고 대상 기간">{text(report.from_date)} — {text(report.to_date)}</Field><Field title="집계 기준일">{text(report.as_of_date)}</Field></dl>
     <Heading>사업장 개요</Heading>
@@ -163,7 +195,7 @@ function buildSections(report) {
 
 function Sheet({ section, report, children, page, total, measure = false, continuation = false }) {
   return <section className={`report-sheet${section.cover ? ' report-cover' : ''}`}>
-    {!section.cover && <header className="report-page-header"><div><p>K 에너지 솔루션 · 영농이행 점검 보고서</p><h1>{section.title}{continuation && <small> (계속)</small>}</h1></div><span>{text(report.from_date)}<br />~ {text(report.to_date)}</span></header>}
+    {!section.cover && <header className="report-page-header"><div><p>{REPORT_COMPANY_NAME} · 영농이행 점검 보고서</p><h1>{section.title}{continuation && <small> (계속)</small>}</h1></div><span>{text(report.from_date)}<br />~ {text(report.to_date)}</span></header>}
     <div className="report-page-body" data-measure-body={measure || undefined}>{children}</div>
     <footer className="report-page-footer"><span>생성 {timestamp(report.generated_at)}</span><span>{text(report.plant?.name)}</span><b>{page} / {total}</b></footer>
   </section>
