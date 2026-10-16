@@ -119,11 +119,11 @@ function FarmingProgressDemo({ report }) {
   const month = /^(\d{4})-(\d{2})/.exec(report.to_date || '')
   const monthLabel = month ? `${month[1]}년 ${Number(month[2])}월` : '해당 월'
   return <section className="report-farming-demo" aria-label="영농 진행 현황">
-    <div className="report-demo-heading"><h2>영농 진행 현황</h2></div>
-    <div className="report-demo-metrics">
-      <div><span>파종부터 수확까지 달성률</span><strong>{achievementPercent}<small>%</small></strong><p>전체 {FARMING_DEMO.stages.length}단계 중 {FARMING_DEMO.completedStages}단계 완료</p></div>
-      <div><span>월간 농경활동 횟수</span><strong>{FARMING_DEMO.monthlyActivityCount}<small>회</small></strong><p>{monthLabel} · 보고 종료월 기준</p></div>
-    </div>
+    <div className="report-demo-heading"><h2>벼 재배 진행 현황</h2></div>
+    <dl className="report-demo-metrics">
+      <div><dt>파종부터 수확까지 달성률</dt><dd>{achievementPercent}% <span>(전체 {FARMING_DEMO.stages.length}단계 중 {FARMING_DEMO.completedStages}단계 완료)</span></dd></div>
+      <div><dt>월간 농경활동 횟수</dt><dd>{FARMING_DEMO.monthlyActivityCount}회 <span>({monthLabel} · 보고 종료월 기준)</span></dd></div>
+    </dl>
     <ol className="report-farming-stages" style={{ '--report-stage-count': FARMING_DEMO.stages.length }} aria-label="파종부터 수확까지 단계별 진행">
       {FARMING_DEMO.stages.map((stage, index) => <li key={stage} className={index < FARMING_DEMO.completedStages ? 'completed' : ''}><span>{String(index + 1).padStart(2, '0')}</span><b>{stage}</b><small>{index < FARMING_DEMO.completedStages ? '완료' : '예정'}</small></li>)}
     </ol>
@@ -151,8 +151,7 @@ function buildSections(report) {
     <dl className="report-property-grid"><Field title="사업장명">{text(plant.name || report.plant_id)}</Field><Field title="소재지">{text(plant.address)}</Field><Field title="설비용량">{metric(plant.capacity_kw, 'kW')}</Field><Field title="사업장 면적">{metric(plant.area_m2, 'm²')}</Field></dl>
     <Heading detail="보고 대상 기간 기준">주요 집계</Heading>
     <div className="report-stats cover-stats"><Stat title="영농계획" value={report.total_plans ?? plans.length} /><Stat title="확정 영농활동" value={activity.confirmed_event_count} /><Stat title="영상 증빙" value={activity.vision_evidence_count} /><Stat title="최종평가 완료" value={completed} /></div>
-    <div className="report-progress-panel"><div className="report-progress-title"><div><h2>평가 완료율</h2><p>조회된 계획 {number(plans.length)}건 중 최종평가 {number(completed)}건</p></div><strong>{number(rate)}<small>%</small></strong></div>
-      <div className="report-progress-track" role="img" aria-label={`평가 완료율 ${numeric(rate) ? rate + '%' : '산정 대상 없음'}`}><span style={{ width: `${rate ?? 0}%` }} /></div>
+    <div className="report-progress-panel"><div className="report-progress-title"><h2>평가 현황</h2><p>조회된 계획 {number(plans.length)}건 중 최종평가 {number(completed)}건 · 평가 완료율 {numeric(rate) ? `${number(rate)}%` : '산정 대상 없음'}</p></div>
       <div className="report-outcomes"><span>이행 <b>{number(counts.fulfilled)}</b>건</span><span>미이행 <b>{number(counts.not_fulfilled)}</b>건</span><span>판단 불가 <b>{number(counts.unable_to_determine)}</b>건</span><span>평가 전 <b>{number(counts.pending)}</b>건</span></div>
 
     </div>
