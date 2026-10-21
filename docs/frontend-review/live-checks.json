@@ -1,0 +1,14 @@
+[
+  {
+    "test": "live analysis list and detail",
+    "passed": true
+  },
+  {
+    "test": "live scoped plans and creation form permission",
+    "passed": true
+  },
+  {
+    "test": "live settings profile",
+    "passed": true
+  }
+]

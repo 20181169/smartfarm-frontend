@@ -3,6 +3,8 @@ import { ScanLine, Upload, Play, Square, Download, Tractor, Users, Camera, Film 
 import { useApp } from '../context/useApp'
 import { apiGetPlants, apiVisionCameras, apiDetectTractor } from '../lib/api'
 import './CctvEvidenceView.css'
+import { canRunVision } from '../lib/uiPolicy'
+import VisionHistory from './VisionHistory'
 
 // 테스트용 샘플 영상(public/samples) — Pexels 무료 영상 8349494(트랙터 건초 작업)를 1280x720·15fps VP8 로 줄인 것
 const SAMPLE = {
@@ -54,7 +56,7 @@ function seekVideo(video, time) {
 
 export default function CctvEvidenceView() {
   const { user, hasPermission } = useApp()
-  const canRun = hasPermission('vision:run')
+  const canRun = canRunVision(user)
   const [plants, setPlants] = useState([])
   const [plantId, setPlantId] = useState('')
   const [cameras, setCameras] = useState([])
@@ -64,7 +66,8 @@ export default function CctvEvidenceView() {
   const [ready, setReady] = useState(false)
   const [threshold, setThreshold] = useState(0.35)
   const [latestResult, setLatestResult] = useState(null)
-  const [selectedFrameId, setSelectedFrameId] = useState(null)
+  const [selectedResult, setSelectedResult] = useState(null)
+  const resultPanel = useRef(null)
   const [history, setHistory] = useState([])
   const [busy, setBusy] = useState(false)
   const [running, setRunning] = useState(false)
@@ -86,7 +89,7 @@ export default function CctvEvidenceView() {
 
   useEffect(() => {
     let alive = true
-    stop(); setPlants([]); setPlantId(''); setLatestResult(null); setSelectedFrameId(null); setHistory([])
+    stop(); setPlants([]); setPlantId(''); setLatestResult(null); setSelectedResult(null); setHistory([])
     if (authenticated) apiGetPlants().then(data => {
       if (alive) { setPlants(data.items || []); setPlantId(data.items?.[0]?.plant_id || '') }
     }).catch(e => { if (alive) setError(e.message) })
@@ -104,8 +107,10 @@ export default function CctvEvidenceView() {
 
   useEffect(() => () => { if (media?.file) URL.revokeObjectURL(media.url) }, [media])
 
+  useEffect(() => { if (!canRun) stop() }, [canRun])
+
   function resetSource(change) {
-    stop(); analysisCount.current = 0; setLatestResult(null); setSelectedFrameId(null); setHistory([]); setError(''); change()
+    stop(); analysisCount.current = 0; setLatestResult(null); setSelectedResult(null); setHistory([]); setError(''); change()
   }
 
   async function analyze() {
@@ -145,7 +150,7 @@ export default function CctvEvidenceView() {
     if (node.ended || node.currentTime >= node.duration - 0.05) await seekVideo(node, 0)
     runningRef.current = true
     setRunning(true)
-    setSelectedFrameId(null)
+    setSelectedResult(null)
     const version = sequence.current
     while (runningRef.current && version === sequence.current) {
       const succeeded = await analyze()
@@ -191,25 +196,24 @@ export default function CctvEvidenceView() {
     const { frame_base64, ...metadata } = displayedResult
     const link = document.createElement('a')
     const url = URL.createObjectURL(new Blob([JSON.stringify(metadata, null, 2)], { type: 'application/json' }))
-    link.href = url; link.download = `tractor-${displayedResult.frame_id}.json`; link.click()
+    link.href = url; link.download = `tractor-${displayedResult.analysis_id || displayedResult.frame_id || displayedResult.analysis_no}.json`; link.click()
     setTimeout(() => URL.revokeObjectURL(url), 1000)
   }
 
   const canAnalyze = canRun && authenticated && plantId && (mode === 'camera' ? cameraId : media && ready)
-  const selectedResult = selectedFrameId ? history.find(row => row.frame_id === selectedFrameId) : null
   const displayedResult = selectedResult || latestResult
   const sourceTime = displayedResult?.video_position != null ? `녹화 ${displayedResult.video_position.toFixed(1)}초` : displayedResult?.captured_at ? new Date(displayedResult.captured_at).toLocaleString('ko-KR') : '촬영시각 미제공'
 
   return <div className="view stack tractor-view">
     <header className="tractor-header">
       <div><div className="view-title"><Tractor size={22} /> CCTV 트랙터·사람 인식 <span className="badge badge-neutral">AI 탐지 후보</span></div>
-        <p className="view-sub">동영상으로 탐지를 시작하고, 분석한 프레임에서 트랙터와 사람을 확인하세요.</p></div>
+        <p className="view-sub">{canRun ? '동영상으로 탐지를 시작하고, 분석한 프레임에서 트랙터와 사람을 확인하세요.' : '발전소별로 저장된 분석 결과와 증빙을 확인하세요.'}</p></div>
       <select aria-label="분석 발전소" className="plant-select" value={plantId} disabled={busy || running} onChange={e => resetSource(() => setPlantId(e.target.value))}>
         <option value="">발전소 선택</option>{plants.map(p => <option key={p.plant_id} value={p.plant_id}>{p.name}</option>)}
       </select>
     </header>
     {!authenticated && <div className="tractor-notice">실제 계정으로 로그인하면 접근 가능한 발전소의 영상을 분석할 수 있습니다.</div>}
-    <div className="tractor-layout">
+    {canRun ? <><div className="tractor-layout">
       <section className="card tractor-source">
         <div className="tractor-tabs" role="group" aria-label="영상 소스">
           <button className={mode === 'file' ? 'selected' : ''} onClick={() => resetSource(() => setMode('file'))}><Upload size={16} /> 동영상 / 이미지</button>
@@ -242,11 +246,11 @@ export default function CctvEvidenceView() {
           <p className="text-muted">{running ? '영상 시간을 2초씩 이동하며 순서대로 분석합니다.' : '최초 분석은 모델 준비로 오래 걸릴 수 있습니다.'} 탐지 점수는 정확도 보증값이 아닙니다.</p>
         </div>
       </section>
-      <section className="card tractor-result" aria-live="polite">
-        <div className="tractor-header"><h3>{selectedResult ? '분석 이력 프레임' : '최근 분석 프레임'}</h3><div className="tractor-result-actions">{selectedResult && <button className="icon-btn" onClick={() => setSelectedFrameId(null)}>최신 결과로</button>}<span className={`badge ${busy ? 'badge-warning' : displayedResult ? 'badge-active' : 'badge-neutral'}`}>{busy ? '다음 프레임 분석 중' : selectedResult ? '이력 확인' : displayedResult ? '분석 완료' : '대기'}</span></div></div>
+      <section ref={resultPanel} tabIndex={-1} className="card tractor-result" aria-live="polite">
+        <div className="tractor-header"><h3>{selectedResult ? '분석 이력 프레임' : '최근 분석 프레임'}</h3><div className="tractor-result-actions">{selectedResult && <button className="icon-btn" onClick={() => setSelectedResult(null)}>최신 결과로</button>}<span className={`badge ${busy ? 'badge-warning' : displayedResult ? 'badge-active' : 'badge-neutral'}`}>{busy ? '다음 프레임 분석 중' : selectedResult ? '이력 확인' : displayedResult ? '분석 완료' : '대기'}</span></div></div>
         {error && <div role="alert" className="tractor-error">{error}</div>}
         {displayedResult ? <>
-          <div className="tractor-frame" key={displayedResult.frame_id} style={{ aspectRatio: `${displayedResult.width}/${displayedResult.height}` }}>
+          <div className="tractor-frame" key={displayedResult.analysis_no} style={{ aspectRatio: `${displayedResult.width}/${displayedResult.height}` }}>
             <img src={`data:image/jpeg;base64,${displayedResult.frame_base64}`} alt="탐지한 실제 CCTV 프레임" />
             {displayedResult.detections.map((d, i) => <div key={i} className="tractor-box" style={{ left: `${d.box[0]*100}%`, top: `${d.box[1]*100}%`, width: `${(d.box[2]-d.box[0])*100}%`, height: `${(d.box[3]-d.box[1])*100}%`, borderColor: COLORS[d.label] }}>
               <span style={{ background: COLORS[d.label] }}>{LABELS[d.label]} {d.score.toFixed(2)}</span>
@@ -255,17 +259,24 @@ export default function CctvEvidenceView() {
           <div className="tractor-stats"><div><Tractor size={20} /><b>{displayedResult.counts.tractor}</b><span>트랙터 후보</span></div><div><Users size={20} /><b>{displayedResult.counts.person}</b><span>사람</span></div><div><b>{(displayedResult.inference_ms/1000).toFixed(1)}초</b><span>처리 시간</span></div></div>
           {displayedResult.counts.tractor === 0 && <p className="text-muted">이 프레임에서는 설정한 기준 이상의 트랙터가 탐지되지 않았습니다.</p>}
           <div className="tractor-meta">{displayedResult.source_name} · {sourceTime}<br />분석 시각 {new Date(displayedResult.analyzed_at).toLocaleString('ko-KR')}<br />{displayedResult.model_id}</div>
-          <button className="icon-btn" onClick={download}><Download size={16} /> 분석 결과 JSON 저장</button>
+          <p className="text-muted">{displayedResult.analysis_id ? '분석 결과는 서버 이력에 저장되었습니다. JSON 다운로드는 내 기기에 사본을 받는 기능입니다.' : '서버 저장 여부를 확인할 수 없습니다. JSON 다운로드는 내 기기에 사본을 받는 기능입니다.'}</p>
+          <button className="icon-btn" onClick={download}><Download size={16} /> 분석 결과 JSON 다운로드</button>
         </> : <div className="tractor-empty"><ScanLine size={44} /><strong>탐지 결과가 여기에 표시됩니다</strong><span>트랙터는 초록색, 사람은 파란색 박스와 이름으로 표시됩니다.</span></div>}
       </section>
     </div>
     <section className="card"><div className="tractor-header"><h3>이번 세션 분석 로그</h3><span className="text-muted">최근 30개 프레임 · 로그를 클릭해 결과 확인</span></div>
-      {history.length ? <div className="tractor-log-list">{history.map((row, index) => <button type="button" className={`tractor-log ${displayedResult?.frame_id === row.frame_id ? 'selected' : ''}`} key={row.frame_id} onClick={() => setSelectedFrameId(row.frame_id)}>
+      {history.length ? <div className="tractor-log-list">{history.map((row, index) => <button type="button" className={`tractor-log ${displayedResult?.analysis_no === row.analysis_no ? 'selected' : ''}`} key={row.analysis_no} aria-pressed={displayedResult?.analysis_no === row.analysis_no} onClick={() => {
+        setSelectedResult(row)
+        resultPanel.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        resultPanel.current?.focus({ preventScroll: true })
+      }}>
         <img src={`data:image/jpeg;base64,${row.frame_base64}`} alt={`분석 로그 ${index + 1} 프레임`} />
         <span className="tractor-log-order">#{row.analysis_no ?? history.length - index}</span>
         <span className="tractor-log-body"><b>{row.video_position != null ? `녹화 ${row.video_position.toFixed(1)}초` : row.camera_id ? 'CCTV 프레임' : '이미지'}</b><small>{new Date(row.analyzed_at).toLocaleTimeString('ko-KR')} · 처리 {(row.inference_ms/1000).toFixed(1)}초</small><span><em>트랙터 {row.counts.tractor}</em><em>사람 {row.counts.person}</em></span></span>
       </button>)}</div> : <div className="tractor-log-empty">분석을 시작하면 프레임 이미지와 탐지 결과가 로그에 추가됩니다.</div>}
     </section>
+    </> : <p role="status" className="tractor-notice">{hasPermission('vision:review') ? '저장된 분석 결과를 조회하고 검토할 수 있습니다. 이 계정에서는 분석을 실행하지 않습니다.' : '저장된 분석 결과를 조회할 수 있습니다.'}</p>}
+    {authenticated && plantId && <VisionHistory key={`${user.userId}:${plantId}`} plantId={plantId} refresh={latestResult?.analysis_no} />}
     <p className="text-muted">트랙터·사람의 존재를 탐지하는 초기 모델입니다. 작업 여부·경운/파종 종류는 아직 판정하지 않습니다. 같은 대상이 여러 프레임에 나타나므로 이력을 작업 횟수로 합산하지 마세요.</p>
   </div>
 }

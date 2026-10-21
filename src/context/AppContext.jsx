@@ -10,6 +10,8 @@ import {
 } from '../lib/api'
 import { menuRoleOf } from '../lib/roles'
 import { currentUser, hasPermission as userHasPermission } from '../lib/permissions'
+import { canViewDemoData } from '../lib/uiPolicy'
+import { apiGetRegions } from '../lib/api'
 import { AppContext } from './useApp'
 
 // 인버터 모델 표기: 장비 목록(관리자 등 device:read 권한)이 있으면 실제 모델, 없으면 실시간 수신 대수만
@@ -437,7 +439,21 @@ export function AppProvider({ children }) {
   const menuRole = menuRoleOf(user)
   const hasPermission = useCallback((code) => userHasPermission(user, code), [user])
 
+  const [demoRegions, setDemoRegions] = useState(null)
+  useEffect(() => {
+    const abort = new AbortController()
+    setDemoRegions(null)
+    if (user?.roleCode === 'PROVINCE_ADMIN' && userHasPermission(user, 'region:read')) {
+      apiGetRegions(abort.signal).then(data => {
+        if (!abort.signal.aborted) setDemoRegions({ user, items: data.items || [] })
+      }).catch(() => {}) // Failed scope lookup never enables demo data.
+    }
+    return () => abort.abort()
+  }, [user])
+  const canViewDemo = canViewDemoData(user, demoRegions?.user === user ? demoRegions.items : [])
+
   const value = {
+    canViewDemo,
     plantId,
     plant,
     plantList,

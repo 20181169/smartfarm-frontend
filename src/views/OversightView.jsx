@@ -37,13 +37,14 @@ function StatTile({ label, value, color, active, clickable, onClick }) {
 }
 
 export default function OversightView() {
-  const { connected, hasPermission } = useApp()
+  const { connected, hasPermission, canViewDemo } = useApp()
   const mapRef = useRef(null)
   const mapObj = useRef(null)
   const groupRef = useRef(null)
   const [mapReady, setMapReady] = useState(false)
   const [filter, setFilter] = useState('all') // 데모 지도 필터
-  const [source, setSource] = useState('demo') // 'demo' | 'backend'
+  const [requestedSource, setSource] = useState('backend')
+  const source = canViewDemo ? requestedSource : 'backend' // 'demo' | 'backend'
   const [realPlants, setRealPlants] = useState([])
   const [beState, setBeState] = useState('idle') // idle|loading|ok|error
   const [beMsg, setBeMsg] = useState('')
@@ -169,7 +170,7 @@ export default function OversightView() {
         <div className="view-sub">
           {/* 백엔드 모드에선 데모 관할·리포트 기간(2027년 예시)을 보여주지 않는다 */}
           {isBackend
-            ? `백엔드 실발전소 ${beState === 'ok' ? `${realPlants.length}곳` : ''} · 영농이행 판정·정기점검 API 미제공`
+            ? `백엔드 실발전소 ${beState === 'ok' ? `${realPlants.length}곳` : ''} · 실제 발전소 목록 기준`
             : `${summary.authority} · 리포트 기간 ${summary.reportingPeriod} · 생성 ${summary.generatedAt}`}
         </div>
       </div>
@@ -179,7 +180,7 @@ export default function OversightView() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12 }}>
           <StatTile label="전체 사업장(백엔드)" value={beState === 'ok' ? realPlants.length : '-'} color="var(--blue)" />
           <StatTile label="지도 표시(좌표 등록)" value={beState === 'ok' ? withCoords : '-'} color="var(--sage-strong)" />
-          <StatTile label="영농이행 미평가" value={beState === 'ok' ? realPlants.length : '-'} color="var(--text-3)" />
+          <StatTile label="종합 이행지표" value="연결 준비 중" color="var(--text-3)" />
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12 }}>
@@ -208,7 +209,7 @@ export default function OversightView() {
             {!isBackend && (
               <span className="text-muted" style={{ fontSize: 12 }}>🟢 정상 · 🟠 관찰 · KPI 클릭 시 필터</span>
             )}
-            {connected && (
+            {connected && canViewDemo && (
               <div className="segmented">
                 <button className={!isBackend ? 'active' : ''} onClick={() => setSource('demo')}>데모</button>
                 <button className={isBackend ? 'active' : ''} onClick={() => setSource('backend')}>
@@ -224,7 +225,7 @@ export default function OversightView() {
         {isBackend && beState === 'ok' && (
           <div className="text-muted" style={{ fontSize: 12, paddingBottom: 6, lineHeight: 1.5 }}>
             백엔드 실발전소 <b>{realPlants.length}곳</b> 중 좌표 등록된 <b>{withCoords}곳</b>만 지도에 표시됩니다.
-            영농이행 판정·정기점검은 백엔드 API가 없어 <b>미평가</b>로 표시됩니다.
+            계획별 평가 결과는 계획평가 메뉴에서 확인할 수 있습니다.
           </div>
         )}
 
@@ -241,7 +242,7 @@ export default function OversightView() {
           </div>
           {isBackend ? (
             <div className="text-muted" style={{ fontSize: 13, padding: '6px 2px', lineHeight: 1.6 }}>
-              백엔드에 영농이행 판정 API가 없어 표시할 데이터가 없습니다. (데모 소스에서 확인)
+              종합 위험도 지표는 연결 준비 중입니다. 계획별 평가 결과는 계획평가 메뉴에서 확인해 주세요.
             </div>
           ) : (
             <div className="info-list">
@@ -265,7 +266,7 @@ export default function OversightView() {
           </div>
           {isBackend ? (
             <div className="text-muted" style={{ fontSize: 13, padding: '6px 2px', lineHeight: 1.6 }}>
-              백엔드에 정기점검 API가 없어 표시할 데이터가 없습니다. (데모 소스에서 확인)
+              정기점검 현황은 연결 준비 중입니다.
             </div>
           ) : (
             <div className="table-wrap">

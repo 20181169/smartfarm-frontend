@@ -1,0 +1,58 @@
+[
+  {
+    "test": "demo visibility",
+    "role": "SYS_ADMIN",
+    "allowed": true
+  },
+  {
+    "test": "demo visibility",
+    "role": "PLANT_OPERATOR",
+    "allowed": false
+  },
+  {
+    "test": "demo visibility",
+    "role": "INSPECTOR",
+    "allowed": false
+  },
+  {
+    "test": "demo visibility",
+    "role": "CITY_ADMIN",
+    "allowed": false
+  },
+  {
+    "test": "demo visibility",
+    "role": "VIEWER",
+    "allowed": false
+  },
+  {
+    "test": "demo visibility",
+    "role": "PROVINCE_ADMIN",
+    "allowed": true
+  },
+  {
+    "test": "demo visibility",
+    "role": "PROVINCE_ADMIN",
+    "allowed": false
+  },
+  {
+    "test": "demo visibility",
+    "role": "PROVINCE_ADMIN",
+    "allowed": false
+  },
+  {
+    "test": "history refresh updates selected detail after another reviewer changes status",
+    "passed": true
+  },
+  {
+    "test": "inspector review only",
+    "passed": true
+  },
+  {
+    "test": "session logs, download, plan creation and settings",
+    "passed": true
+  },
+  {
+    "test": "viewer cannot create",
+    "passed": true
+  }
+]

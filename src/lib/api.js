@@ -105,6 +105,10 @@ async function assessmentPages(path, params = {}, signal) {
 }
 
 export const apiAssessmentPlants = (signal) => assessmentPages('/plants', {}, signal)
+export const apiGetRegions = (signal) => request('/regions', { signal })
+export const apiCreateFarmingPlan = (body) => request('/farming-plans', { method: 'POST', body })
+export const apiVisionAnalyses = (plantId, skip = 0, signal) => request(`/vision/analyses?${new URLSearchParams({ plant_id: plantId, skip, limit: 20 })}`, { signal })
+export const apiReviewVision = (id, body) => request(`/vision/analyses/${encodeURIComponent(id)}/review`, { method: 'PATCH', body })
 export const apiFarmingPlans = (plantId, signal) => assessmentPages('/farming-plans', { plant_id: plantId }, signal)
 export const apiFarmingPlan = (id, signal) => request(`/farming-plans/${encodeURIComponent(id)}`, { signal })
 export const apiPlanMatches = (id, signal) => assessmentPages(`/farming-plans/${encodeURIComponent(id)}/matches`, {}, signal)

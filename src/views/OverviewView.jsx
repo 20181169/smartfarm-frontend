@@ -114,7 +114,7 @@ function BackendPlants() {
 }
 
 export default function OverviewView() {
-  const { selectPlant, canSwitchPlant, connected, backendPlants } = useApp()
+  const { selectPlant, canSwitchPlant, connected, backendPlants, canViewDemo } = useApp()
   const navigate = useNavigate()
   const [detail, setDetail] = useState(null)
 
@@ -134,12 +134,13 @@ export default function OverviewView() {
         <div className="view-sub">
           {realCount
             ? `K 에너지 솔루션 · 실발전소 ${realCount}개 (${nf(realCap)} kW)`
-            : `K 에너지 솔루션 · 총 ${list.length}개 발전소 (${nf(totalCap)} kW)`}
+            : 'K 에너지 솔루션 · 조회 가능한 발전소 현황'}
         </div>
       </div>
 
       <BackendPlants />
 
+      {canViewDemo && <>
       <div className="view-sub" style={{ marginTop: 4, marginBottom: -6 }}>데모 데이터 (목)</div>
       <div className="grid grid-3">
         {list.map((p) => {
@@ -180,6 +181,7 @@ export default function OverviewView() {
       </div>
 
       {detail && <PlantDetailModal plant={detail} onClose={() => setDetail(null)} />}
+      </>}
     </div>
   )
 }

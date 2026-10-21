@@ -6,6 +6,7 @@ import {
   apiPlanAssessments, apiSavePlanAssessment, apiFarmingActivity, apiAssessmentAnalysis, apiAssessmentImage,
 } from '../lib/api'
 import './PlanAssessmentView.css'
+import PlanCreateForm from './PlanCreateForm'
 
 const RESULTS = { fulfilled: '이행', not_fulfilled: '미이행', unable_to_determine: '판단 불가' }
 const PHASES = { waiting: '대기', monitoring: '관찰 중', review_required: '검토 필요', excluded: '평가 제외' }
@@ -183,6 +184,8 @@ function PlanDetail({ planId, canAssess, onBusy }) {
 }
 
 function AssessmentWorkspace({ initialPlantId, canAssess }) {
+  const createdPlan = useRef(null)
+  const [createdNotice, setCreatedNotice] = useState('')
   const [plants, setPlants] = useState(null)
   const [plantId, setPlantId] = useState('')
   const [plantError, setPlantError] = useState('')
@@ -208,7 +211,7 @@ function AssessmentWorkspace({ initialPlantId, canAssess }) {
     const controller = new AbortController()
     setPlans(null); setPlanId(''); setPlanError('')
     if (plantId) apiFarmingPlans(plantId, controller.signal).then((items) => {
-      if (!controller.signal.aborted) { setPlans(items); setPlanId(items[0]?.plan_id || '') }
+      if (!controller.signal.aborted) { setPlans(items); setPlanId(items.some(p => p.plan_id === createdPlan.current) ? createdPlan.current : items[0]?.plan_id || ''); createdPlan.current = null }
     }).catch((e) => { if (!controller.signal.aborted) setPlanError(errorText(e)) })
     return () => controller.abort()
   }, [plantId, planReload])
@@ -217,7 +220,7 @@ function AssessmentWorkspace({ initialPlantId, canAssess }) {
       {plantError ? <Failure error={plantError} retry={() => setPlantReload((v) => v + 1)} /> : !plants ? <p role="status">발전소 목록을 불러오는 중입니다.</p>
         : !plants.length ? <p>조회 가능한 발전소가 없습니다. 담당 발전소 배정을 확인해 주세요.</p> : <>
           <div className="assessment-controls">
-            <label>평가 대상 발전소<select aria-label="평가 대상 발전소" className="input" value={plantId} disabled={busy} onChange={(e) => { if (e.target.value === plantId) return; setPlantId(e.target.value); setPlanId(''); setPlans(null) }}>{plants.map((p) => <option key={p.plant_id} value={p.plant_id}>{p.name}</option>)}</select></label>
+            <label>평가 대상 발전소<select aria-label="평가 대상 발전소" className="input" value={plantId} disabled={busy} onChange={(e) => { if (e.target.value === plantId) return; setPlantId(e.target.value); setPlanId(''); setPlans(null); setCreatedNotice(''); createdPlan.current = null }}>{plants.map((p) => <option key={p.plant_id} value={p.plant_id}>{p.name}</option>)}</select></label>
             <label>영농계획<select aria-label="영농계획" className="input" value={planId} disabled={busy || !plans?.length} onChange={(e) => setPlanId(e.target.value)}>
               {!plans?.length && <option value="">{planError ? '조회 실패' : plans ? '등록된 계획 없음' : '불러오는 중…'}</option>}
               {plans?.map((p) => <option key={p.plan_id} value={p.plan_id}>{p.title} ({p.planned_start_date} ~ {p.planned_end_date}){p.status === 'cancelled' ? ' · 취소' : ''}</option>)}
@@ -228,6 +231,10 @@ function AssessmentWorkspace({ initialPlantId, canAssess }) {
           {plans && !plans.length && <p>이 발전소에 등록된 영농계획이 없습니다.</p>}
         </>}
     </div>
+    {createdNotice && <p role="status">{createdNotice}</p>}
+    {plantId && <PlanCreateForm key={plantId} plantId={plantId} disabled={busy} onBusy={setBusy} onCreated={plan => {
+      createdPlan.current = plan.plan_id; setCreatedNotice('영농계획을 등록했습니다.'); setPlanReload(v => v + 1)
+    }} />}
     {plantId && planId && <PlanDetail key={`${plantId}:${planId}`} planId={planId} canAssess={canAssess} onBusy={setBusy} />}
   </>
 }

@@ -6,6 +6,7 @@ import {
 
 import { AppProvider } from './context/AppContext'
 
+import DemoBoundary from './components/DemoBoundary'
 import Layout from './components/layout/Layout'
 import RequirePermission from './components/RequirePermission'
 import { ROUTE_PERMISSIONS } from './lib/permissions'
@@ -81,7 +82,7 @@ export default function App() {
 
           <Route
             path="my-compliance"
-            element={<OwnerAgriStatusView />}
+            element={<DemoBoundary title="영농이행"><OwnerAgriStatusView /></DemoBoundary>}
           />
 
           <Route
@@ -97,14 +98,14 @@ export default function App() {
           <Route
             path="site-detail"
             element={
-              <RequirePermission permissions={ROUTE_PERMISSIONS['/site-detail']}><SiteDetailView /></RequirePermission>
+              <RequirePermission permissions={ROUTE_PERMISSIONS['/site-detail']}><DemoBoundary title="사업장 상세"><SiteDetailView /></DemoBoundary></RequirePermission>
             }
           />
 
           <Route
             path="anomalies"
             element={
-              <RequirePermission permissions={ROUTE_PERMISSIONS['/anomalies']}><RiskCenterView /></RequirePermission>
+              <RequirePermission permissions={ROUTE_PERMISSIONS['/anomalies']}><DemoBoundary title="이상징후"><RiskCenterView /></DemoBoundary></RequirePermission>
             }
           />
 

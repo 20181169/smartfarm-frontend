@@ -36,7 +36,7 @@ export default function ReportView() {
       <div className="card">
         <div className="card-header">
           <span className="card-title"><FileText /> 월간 종합 분석</span>
-          <button className="btn-terracotta" onClick={() => alert('보고서 PDF 다운로드 시작')}><FileDown /> PDF 다운로드</button>
+          <button className="btn-terracotta" disabled title="발전·수익 보고서 PDF는 준비 중입니다"><FileDown /> PDF 다운로드 준비 중</button>
         </div>
         <p style={{ fontSize: 13.5, color: 'var(--text-2)', lineHeight: 1.8 }}>
           2026년 7월 종합 발전 성능 지수(PR)는 <b className="text-sage">84.2%</b>로 우수 수준을 유지하고 있습니다.

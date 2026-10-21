@@ -51,3 +51,7 @@
 .tractor-log-empty { margin-top:14px; padding:30px; text-align:center; border-radius:10px; background:var(--bg-subtle); color:var(--text-3); font-size:12px }
 @media(max-width:1000px) { .tractor-layout { grid-template-columns:1fr } }
 @media(max-width:520px) { .tractor-log-list { grid-template-columns:1fr } }
+
+.vision-review-form .field { display: flex; flex-direction: column; gap: 8px; }
+.vision-review-form textarea { width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--card); color: var(--text); font: inherit; resize: vertical; }
+.vision-review-form > button { align-self: flex-start; }
