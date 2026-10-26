@@ -3,6 +3,7 @@ import { FileCheck2, FileDown, RefreshCw } from 'lucide-react'
 import { useApp } from '../context/useApp'
 import { apiReportPlants, apiFarmingReport, apiGenerateFarmingReport, apiReportArchive, apiDownloadFarmingReport, apiReportEvidenceImage } from '../lib/api'
 import './ReportCenterView.css'
+import ReportApproval from './ReportApproval'
 
 const PHASES = { waiting: '대기', monitoring: '관찰 중', review_required: '검토 필요', excluded: '평가 제외' }
 const RESULTS = { fulfilled: '이행', not_fulfilled: '미이행', unable_to_determine: '판단 불가' }
@@ -169,7 +170,7 @@ function Archive({ plantId, refresh }) {
     <p className="text-muted">선택한 발전소의 전체 기간 보고서입니다. 생성된 PDF는 생성 당시 내용을 유지합니다.</p>
     {state.loading ? <p role="status">보관 목록을 불러오는 중입니다.</p> : state.error ? <ErrorBox error={state.error} retry={() => setReload((v) => v + 1)} /> : <>
       {!state.data.items.length ? <p>보관된 보고서가 없습니다.</p> : <ul className="report-archives">{state.data.items.map((report) => <li key={report.report_id}>
-        <div><strong>{report.period}</strong><p className="report-copy">{report.file_name}</p><p className="text-muted">발행 {time(report.issued_at)}</p></div><Download report={report} />
+        <div><strong>{report.period}</strong><p className="report-copy">{report.file_name}</p><p className="text-muted">발행 {time(report.issued_at)}</p></div><Download report={report} /><ReportApproval reportId={report.report_id} />
       </li>)}</ul>}
       {state.data.total > 20 && <div className="report-row"><button className="icon-btn" disabled={!skip} onClick={() => setSkip(Math.max(0, skip - 20))}>이전</button><span>{Math.floor(skip / 20) + 1} / {Math.ceil(state.data.total / 20)} 페이지 · 총 {state.data.total}건</span><button className="icon-btn" disabled={skip + 20 >= state.data.total} onClick={() => setSkip(skip + 20)}>다음</button></div>}
     </>}

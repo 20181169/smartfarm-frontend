@@ -7,6 +7,8 @@ import {
 } from '../lib/api'
 import './PlanAssessmentView.css'
 import PlanCreateForm from './PlanCreateForm'
+import PlanActions from './PlanActions'
+import { Link } from 'react-router-dom'
 
 const RESULTS = { fulfilled: '이행', not_fulfilled: '미이행', unable_to_determine: '판단 불가' }
 const PHASES = { waiting: '대기', monitoring: '관찰 중', review_required: '검토 필요', excluded: '평가 제외' }
@@ -91,8 +93,10 @@ function Activity({ match, valid, invalid }) {
   </div>
 }
 
-function PlanDetail({ planId, canAssess, onBusy }) {
+function PlanDetail({ planId, canAssess, onBusy, onPlanChanged }) {
   const { hasPermission } = useApp()
+  const [actionBusy, setActionBusy] = useState(false)
+  useEffect(() => { onBusy(actionBusy) }, [actionBusy, onBusy])
   const canReadMatches = hasPermission('farming_match:read')
   const [state, setState] = useState({ loading: true })
   const [reload, setReload] = useState(0)
@@ -115,7 +119,7 @@ function PlanDetail({ planId, canAssess, onBusy }) {
   }, [planId, reload, canReadMatches])
   const save = async (event) => {
     event.preventDefault()
-    if (posting.current || !canAssess || !result || !comment.trim() || state.loading || state.error || state.plan.status === 'cancelled' || state.preview.phase === 'excluded') return
+    if (posting.current || actionBusy || !canAssess || !result || !comment.trim() || state.loading || state.error || state.plan.status === 'cancelled' || state.preview.phase === 'excluded') return
     posting.current = true
     setSaving(true); onBusy(true); setSaveError(''); setNotice('')
     try {
@@ -139,9 +143,10 @@ function PlanDetail({ planId, canAssess, onBusy }) {
   const validIds = new Set(preview.valid_event_ids || [])
   return <>
     <div className="card">
-      <div className="assessment-row"><h2 style={{ fontSize: 18 }}>{plan.title}</h2><button className="icon-btn" disabled={saving} onClick={() => setReload((v) => v + 1)}><RefreshCw size={14} /> 평가 새로고침</button></div>
+      <div className="assessment-row"><h2 style={{ fontSize: 18 }}>{plan.title}</h2><button className="icon-btn" disabled={saving || actionBusy} onClick={() => setReload((v) => v + 1)}><RefreshCw size={14} /> 평가 새로고침</button></div>
       <p className="text-muted">{plan.activity_type} · {plan.planned_start_date} ~ {plan.planned_end_date} · {plan.status === 'cancelled' ? '취소된 계획' : '등록된 계획'}</p>
       {plan.description && <p className="assessment-copy">{plan.description}</p>}
+      <PlanActions plan={plan} matches={matches} onBusy={setActionBusy} disabled={saving} onDone={() => onPlanChanged(plan.plan_id)} />
       <div className="assessment-metrics">
         <div>진행 단계<b>{PHASES[preview.phase] || '확인 필요'}</b></div>
         <div>유효 활동<b>{preview.valid_event_count ?? '—'}건</b></div>
@@ -163,11 +168,11 @@ function PlanDetail({ planId, canAssess, onBusy }) {
           : excluded ? <p className="assessment-message">취소되었거나 평가에서 제외된 계획입니다. 기존 평가 이력만 확인할 수 있습니다.</p>
             : <form className="assessment-form" onSubmit={save}>
               <p className="view-sub">연결된 활동과 증빙을 확인한 뒤 결과와 판단 근거를 입력해 주세요.</p>
-              <label>평가 결과<select aria-label="평가 결과" className="input" required value={result} disabled={saving} onChange={(e) => setResult(e.target.value)}><option value="">결과 선택</option>{Object.entries(RESULTS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
-              <label>평가 의견<textarea aria-label="평가 의견" className="input" rows={5} required maxLength={2000} value={comment} disabled={saving} placeholder="평가 근거를 입력하세요." onChange={(e) => setComment(e.target.value)} /></label>
+              <label>평가 결과<select aria-label="평가 결과" className="input" required value={result} disabled={saving || actionBusy} onChange={(e) => setResult(e.target.value)}><option value="">결과 선택</option>{Object.entries(RESULTS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
+              <label>평가 의견<textarea aria-label="평가 의견" className="input" rows={5} required maxLength={2000} value={comment} disabled={saving || actionBusy} placeholder="평가 근거를 입력하세요." onChange={(e) => setComment(e.target.value)} /></label>
               <div className="text-muted">{comment.length.toLocaleString()} / 2,000자 · 저장한 결과는 평가 이력에 남습니다.</div>
               {saveError && <Failure error={saveError} />}
-              <button className="btn-terracotta" disabled={saving || !result || !comment.trim()} type="submit">{saving ? '저장 중…' : '평가 저장'}</button>
+              <button className="btn-terracotta" disabled={saving || actionBusy || !result || !comment.trim()} type="submit">{saving ? '저장 중…' : '평가 저장'}</button>
             </form>}
       </section>
     </div>
@@ -235,7 +240,7 @@ function AssessmentWorkspace({ initialPlantId, canAssess }) {
     {plantId && <PlanCreateForm key={plantId} plantId={plantId} disabled={busy} onBusy={setBusy} onCreated={plan => {
       createdPlan.current = plan.plan_id; setCreatedNotice('영농계획을 등록했습니다.'); setPlanReload(v => v + 1)
     }} />}
-    {plantId && planId && <PlanDetail key={`${plantId}:${planId}`} planId={planId} canAssess={canAssess} onBusy={setBusy} />}
+    {plantId && planId && <PlanDetail key={`${plantId}:${planId}`} planId={planId} canAssess={canAssess} onBusy={setBusy} onPlanChanged={id => { createdPlan.current = id; setCreatedNotice('계획 변경사항을 반영했습니다.'); setPlanReload(v => v + 1) }} />}
   </>
 }
 
@@ -243,6 +248,7 @@ export default function PlanAssessmentView() {
   const { user, plantId, hasPermission } = useApp()
   return <div className="view stack plan-assessment">
     <div><div className="view-title"><ClipboardCheck size={20} /> 영농계획 이행 평가</div><div className="view-sub">계획별 활동·증빙을 확인하고 평가 결과와 이력을 관리합니다.</div></div>
+    {hasPermission('farming_activity:read') && <Link to="/my-compliance">영농활동 등록 · 검토 · 재제출</Link>}
     {user?.source === 'api'
       ? <AssessmentWorkspace key={user.email} initialPlantId={plantId} canAssess={hasPermission('farming_assessment:update')} />
       : <div className="card" role="status">실제 계정으로 로그인하면 담당 발전소의 계획과 평가 이력을 확인할 수 있습니다.</div>}

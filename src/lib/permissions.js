@@ -15,6 +15,7 @@ export function currentUser(me) {
 
 // Requirements describe each screen, never a role-to-permission matrix.
 export const ROUTE_PERMISSIONS = {
+  '/my-compliance': ['farming_activity:read'],
   '/oversight': ['plant:read'],
   '/site-detail': ['farming_plan:read'],
   '/anomalies': ['farming_activity:read'],

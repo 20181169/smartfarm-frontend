@@ -5,6 +5,8 @@
    - 인증: JWT Bearer 토큰을 localStorage 에 저장/첨부
    ========================================================================== */
 
+import { availableEvidence } from './workflow.js'
+
 const BASE = import.meta.env.VITE_API_BASE || '/api/v1'
 const TOKEN_KEY = 'dongyang_token'
 export const AUTH_EXPIRED_EVENT = 'dongyang:auth-expired'
@@ -643,4 +645,35 @@ export async function apiPlantsWithOverview({ withLive = false } = {}) {
       return { plant, overview, live: inv ? mapLatestToLive(inv.items || [], []) : null }
     })
   )
+}
+
+
+/* Farming workflow: backend owns scope, state transitions and signer identity. */
+export const apiReportApproval = (id, signal) => request(`${REPORTS}/archive/${encodeURIComponent(id)}/approval`, { signal })
+export const apiApproveReport = (id, body) => request(`${REPORTS}/archive/${encodeURIComponent(id)}/approval`, { method: 'POST', body })
+export const apiFarmingActivities = (plantId, signal) => assessmentPages('/farming-activities', { plant_id: plantId }, signal)
+export const apiActivityReviews = (id, signal) => assessmentPages(`/farming-activities/${encodeURIComponent(id)}/reviews`, {}, signal)
+export const apiCreateActivity = body => request('/farming-activities', { method: 'POST', body })
+export const apiResubmitActivity = (id, body) => request(`/farming-activities/${encodeURIComponent(id)}`, { method: 'PATCH', body })
+export const apiReviewActivity = (id, body) => request(`/farming-activities/${encodeURIComponent(id)}/review`, { method: 'PATCH', body })
+export const apiVisionReviews = (id, signal) => assessmentPages(`/vision/analyses/${encodeURIComponent(id)}/reviews`, {}, signal)
+export const apiUpdatePlan = (id, body) => request(`/farming-plans/${encodeURIComponent(id)}`, { method: 'PATCH', body })
+export const apiCancelPlan = (id, body) => request(`/farming-plans/${encodeURIComponent(id)}/cancel`, { method: 'PATCH', body })
+export const apiMatchCandidates = (id, signal) => assessmentPages(`/farming-plans/${encodeURIComponent(id)}/match-candidates`, {}, signal)
+export const apiMatchActivity = (id, body) => request(`/farming-plans/${encodeURIComponent(id)}/matches`, { method: 'POST', body })
+export async function apiAvailableEvidence(plantId, ownEventId, signal) {
+  const [analyses, activities] = await Promise.all([
+    assessmentPages('/vision/analyses', { plant_id: plantId, status: 'confirmed' }, signal),
+    apiFarmingActivities(plantId, signal),
+  ])
+  const occupied = new Set()
+  const others = activities.filter(a => a.event_id !== ownEventId)
+  // The API has no unused-evidence filter. Inspect scoped event evidence in bounded batches.
+  // If any ownership lookup fails, do not offer potentially occupied evidence.
+  for (let i = 0; i < others.length; i += 5) {
+    signal?.throwIfAborted()
+    const details = await Promise.all(others.slice(i, i + 5).map(a => apiFarmingActivity(a.event_id, signal)))
+    for (const detail of details) for (const ev of detail.evidence) occupied.add(ev.analysis_id)
+  }
+  return availableEvidence(analyses, occupied, plantId)
 }

@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { useApp } from '../context/useApp'
-import { apiVisionAnalyses, apiAssessmentAnalysis, apiAssessmentImage, apiReviewVision } from '../lib/api'
+import { apiVisionAnalyses, apiAssessmentAnalysis, apiReportEvidenceImage, apiVisionReviews, apiReviewVision } from '../lib/api'
+
+import { useWorkflowQuery, QueryStatus, ReviewHistory } from '../components/WorkflowUI'
 
 const STATUS = { candidate: '후보', pending: '검토 대기', confirmed: '확정', rejected: '반려' }
 const message = e => e.status === 403 ? '분석 이력 조회 또는 검토 권한이 없습니다.' : e.message
@@ -12,6 +14,8 @@ function SavedAnalysis({ id, refresh, onReviewed }) {
   const [image, setImage] = useState(null)
   const [imageError, setImageError] = useState('')
   const [reload, setReload] = useState(0)
+  const [imageType, setImageType] = useState('annotated')
+  const reviews = useWorkflowQuery(signal => apiVisionReviews(id, signal), [id, reload, refresh])
   const [result, setResult] = useState('')
   const [comment, setComment] = useState('')
   const [saving, setSaving] = useState(false)
@@ -32,14 +36,14 @@ function SavedAnalysis({ id, refresh, onReviewed }) {
     const abort = new AbortController()
     let url
     setImage(null); setImageError('')
-    apiAssessmentImage(id, abort.signal).then(blob => {
+    apiReportEvidenceImage(id, imageType, abort.signal).then(blob => {
       if (!abort.signal.aborted) { url = URL.createObjectURL(blob); setImage(url) }
     }).catch(e => { if (!abort.signal.aborted) setImageError(e.status === 404 ? '저장된 증빙 이미지가 없습니다.' : message(e)) })
     return () => { abort.abort(); if (url) URL.revokeObjectURL(url) }
-  }, [id])
+  }, [id, imageType])
   async function review(event) {
     event.preventDefault()
-    if (pending.current || !result || !hasPermission('vision:review')) return
+    if (pending.current || !result || (result === 'rejected' && !comment.trim()) || !hasPermission('vision:review')) return
     pending.current = true; setSaving(true); setError(''); setNotice('')
     try {
       await apiReviewVision(id, { status: result, comment: comment.trim() || null })
@@ -52,13 +56,16 @@ function SavedAnalysis({ id, refresh, onReviewed }) {
     {state.loading ? <p role="status">분석 결과를 불러오는 중입니다.</p> : state.error ? <div role="alert">{state.error}<button onClick={() => setReload(v => v + 1)}>다시 조회</button></div> : <>
       <h3>분석 결과 · {STATUS[state.data.status] || state.data.status}</h3>
       <div className="text-muted">{time(state.data.analyzed_at)} · {state.data.model_id}</div>
+      <p>촬영: {time(state.data.captured_at)}</p>
+      <div className="workflow-actions"><button type="button" className="icon-btn" onClick={() => setImageType('source')}>원본 이미지</button><button type="button" className="icon-btn" onClick={() => setImageType('annotated')}>AI 결과 이미지</button></div>
       {image ? <img src={image} alt="저장된 분석 증빙" style={{ maxWidth: '100%', maxHeight: 420, objectFit: 'contain' }} /> : <p>{imageError || '이미지를 불러오는 중입니다.'}</p>}
       <div className="table-wrap"><table className="data"><thead><tr><th>탐지 대상</th><th>탐지 점수</th></tr></thead><tbody>{state.data.detections?.map((d,i) => <tr key={d.detection_id || i}><td>{{ tractor: '트랙터', person: '사람', car: '승용차', truck: '트럭' }[d.label] || d.label}</td><td>{Number.isFinite(d.confidence) ? d.confidence.toFixed(2) : '—'}</td></tr>)}</tbody></table></div>
       {!state.data.detections?.length && <p>탐지된 객체가 없습니다.</p>}
+      <QueryStatus state={reviews} />{reviews.data && <ReviewHistory items={reviews.data} />}
       {hasPermission('vision:review') && <form onSubmit={review} className="stack vision-review-form">
         <label className="field">검토 결과<select aria-label="영상 검토 결과" required value={result} disabled={saving} onChange={e => setResult(e.target.value)}><option value="">선택하세요</option>{['confirmed','rejected','pending'].map(value => <option key={value} value={value} disabled={state.data.status === value}>{STATUS[value]}</option>)}</select></label>
-        <label className="field">검토 의견<textarea aria-label="영상 검토 의견" value={comment} disabled={saving} maxLength={2000} rows={3} onChange={e => setComment(e.target.value)} /></label>
-        <button className="btn-primary" disabled={saving || !result} type="submit">{saving ? '저장 중…' : '검토 결과 저장'}</button>
+        <label className="field">검토 의견<textarea aria-label="영상 검토 의견" required={result === 'rejected'} value={comment} disabled={saving} maxLength={2000} rows={3} onChange={e => setComment(e.target.value)} /></label>
+        <button className="btn-primary" disabled={saving || !result || (result === 'rejected' && !comment.trim())} type="submit">{saving ? '저장 중…' : '검토 결과 저장'}</button>
       </form>}
     </>}
     {error && <p role="alert">{error}</p>}{notice && <p role="status">{notice}</p>}

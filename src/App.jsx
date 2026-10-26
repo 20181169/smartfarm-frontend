@@ -21,7 +21,7 @@ import SiteDetailView from './views/SiteDetailView'
 import RiskCenterView from './views/RiskCenterView'
 import CctvEvidenceView from './views/CctvEvidenceView'
 import ReportCenterView from './views/ReportCenterView'
-import OwnerAgriStatusView from './views/OwnerAgriStatusView'
+import FarmingActivitiesView from './views/FarmingActivitiesView'
 import ErrorsView from './views/ErrorsView'
 import SettingsView from './views/SettingsView'
 import ComparisonView from './views/ComparisonView'
@@ -82,7 +82,7 @@ export default function App() {
 
           <Route
             path="my-compliance"
-            element={<DemoBoundary title="영농이행"><OwnerAgriStatusView /></DemoBoundary>}
+            element={<RequirePermission permissions={ROUTE_PERMISSIONS['/my-compliance']}><FarmingActivitiesView /></RequirePermission>}
           />
 
           <Route

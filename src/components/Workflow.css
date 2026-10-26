@@ -1,0 +1,17 @@
+.workflow-form { display: grid; gap: 14px; margin: 16px 0; }
+.workflow-form label { display: grid; gap: 6px; font-size: 13px; }
+.workflow-form input:not([type=checkbox]), .workflow-form select, .workflow-form textarea { width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-card); color: var(--text); font: inherit; }
+.workflow-form fieldset { border: 0; padding: 0; margin: 0; min-width: 0; display: grid; gap: 14px; }
+.workflow-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.workflow-history { margin: 12px 0; padding-left: 24px; }
+.workflow-history li { border-bottom: 1px solid var(--border); padding: 12px 0; overflow-wrap: anywhere; }
+.workflow-history p, .workflow-copy { white-space: pre-wrap; overflow-wrap: anywhere; }
+.workflow-error { border-left: 3px solid var(--terracotta, #c6765b); padding: 12px; white-space: pre-wrap; }
+.workflow-list { display: grid; gap: 10px; margin: 16px 0; padding: 0; list-style: none; }
+.workflow-list > li { border: 1px solid var(--border); border-radius: 8px; padding: 14px; }
+.workflow-evidence { max-height: 340px; overflow-y: auto; border: 1px solid var(--border); padding: 10px; }
+.workflow-evidence label { display: flex; align-items: start; padding: 8px 0; }
+.workflow-preview { max-width: 100%; max-height: 360px; object-fit: contain; }
+.workflow-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin: 16px 0; }
+.workflow-summary dt { color: var(--text-2); font-size: 12px; }
+.workflow-summary dd { margin: 5px 0; overflow-wrap: anywhere; }

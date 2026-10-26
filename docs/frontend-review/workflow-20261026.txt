@@ -1,0 +1,86 @@
+영농 워크플로 프론트 반영 결과 — 2026-10-26
+
+기준
+- SMARTFARM_FRONTEND_FARMING_WORKFLOW_API_GUIDE.md 및 보고서 승인·서명/재제출 관련 요청.
+- 백엔드 원격 main 7d763b0: 8ed0b3d 보고서 승인·서명, bbae494 활동 정정·재제출 포함.
+- 운영 서버 OpenAPI에서 이번에 연결한 경로·메서드·요청 필드 확인.
+- 프론트 로컬 변경이며 커밋·push·운영 배포는 수행하지 않음. 백엔드 코드·DB 변경 없음.
+
+1. 기존 구현 유지
+- 영농계획 등록·조회, 계획 이행 평가와 평가 이력.
+- AI 영상 분석 조회·확정·반려.
+- 이행리포트 데이터 조회, PDF 생성·보관 목록·다운로드.
+- 기존 PDF 보고서의 회사명·디자인 및 요청된 벼 고정 수치 유지.
+
+2. 이번에 연결한 화면과 API
+이행리포트 /#/compliance-report
+- 보관된 PDF의 '승인 · 서명 확인'에서 최신 상태, 최종 검토자, 역할, 서명 시각, 의견과 전체 이력 표시.
+- report:approve 보유자에게 승인·반려 및 최종 확정 버튼. 반려 의견 필수.
+- GET/POST /farming-plans/reports/archive/{report_id}/approval.
+- 보내는 값은 decision, comment뿐. 이름/역할/서명 시각은 서버 응답 사용.
+
+영농이행 /#/my-compliance
+- 기존 예시 화면 대신 실제 발전소별 영농활동 목록·상세·상태 필터.
+- POST /farming-activities: 확정된 동일 발전소 AI 증빙을 선택하여 활동 제출.
+- GET /farming-activities/{event_id}, /reviews: 설명·상태·작업시간·등록자·확정자 ID와 검토 이력.
+- PATCH /farming-activities/{event_id}/review: draft에서 확인/반려. 반려 의견 필수.
+- PATCH /farming-activities/{event_id}: cancelled에서 기존 ID로 수정·재제출.
+- 재제출 payload에 plant_id, status, 승인자/시각을 넣지 않음.
+- 반려 사유를 상세와 수정 폼에 표시. 재제출 후에도 기존 검토 이력 표시.
+- 재확정 후 필요시 계획에 다시 연결해야 함을 안내.
+- 기존 메뉴 이름 유지. 해당 read 권한을 가진 관리자/점검자에게도 같은 영농이행 메뉴가 제공됨.
+
+계획평가 /#/plan-assessment
+- PATCH /farming-plans/{plan_id}: 계획명·유형·설명·기간 수정.
+- PATCH /farming-plans/{plan_id}/cancel: 사유 입력 후 취소 확정.
+- GET /farming-plans/{plan_id}/match-candidates, POST /matches: 확정 활동 연결.
+- 연결 후보의 유형·작업시각·증빙 수 표시, 이미 연결된 항목 제외.
+- 처리 후 목록/선택한 계획/평가 및 연결 활동 재조회.
+
+CCTV /#/cctv
+- GET /vision/analyses/{analysis_id}/reviews: 과거 검토 의견과 이력.
+- 원본/AI 결과 이미지 전환, 촬영 시각 표시, 반려 의견 입력 검사.
+- 영농활동 증빙 상세에서도 원본/AI 결과/탐지 점수/검토 이력을 확인 가능.
+
+3. 역할과 상태
+- PLANT_OPERATOR: 권한에 따라 계획 등록/수정/취소, 활동 등록, cancelled 활동 정정·재제출. 활동 자체 검토 및 보고서 최종 승인은 권한 없으면 표시하지 않음.
+- INSPECTOR: 저장된 AI 분석 검토, draft 활동 확인/반려, 계획평가, 보고서 승인/반려. 활동 수정·재제출 권한이 없으면 수정 버튼 없음. 기존 분석 실행 제한 유지.
+- SYS_ADMIN: 서버가 부여한 권한 범위에서 관리 작업.
+- VIEWER: 조회만 제공.
+- 모든 데이터 접근 범위와 상태 전환 최종 검증은 백엔드가 담당.
+
+4. 검증
+- npm run build 통과 (기존 큰 번들 경고 있음).
+- node --test tests/ui-policy.test.mjs tests/workflow.test.mjs: 8개 통과.
+- tests/workflow.browser.cjs: 운영자/점검자/관리자/뷰어 4개 흐름 통과.
+  증빙 제외 조건, 기존 ID 재제출, 반려 이력 보존, 403/409 오류, 자기 검토 제한,
+  반려 사유 필수, 서버 서명자 표시, 계획 수정·연결·취소 검증.
+- 기존 브라우저 회귀 검증 12개 통과: 데모 범위, CCTV 로그, 새로고침, 계획 등록, 설정 등.
+- 관리자·광주 운영자 실제 API 조회: 활동 목록/상세/검토 이력, 선택 가능한 증빙,
+  보관 보고서 승인 이력, 기존 계획·영상·프로필 조회 통과.
+- 실서버 쓰기 요청은 차단한 상태로 조회 검증. 실제 등록/반려/재제출/승인 저장은 수행하지 않음.
+  쓰기 흐름 검증에만 테스트 API 응답 사용하며 제품 코드는 실제 API를 호출함.
+
+5. 구분할 사항
+- 여기서 서명은 로그인 사용자의 승인 판단과 이름/역할/시각을 서버에 기록하는 방식.
+  손으로 그리는 서명 이미지 입력은 추가하지 않음.
+- 보관된 PDF는 생성 당시 파일을 유지. 새 승인 정보를 기존 PDF 파일에 덧쓰는 기능은 아님.
+- 재제출 대상은 반려된 영농활동. 보고서 자체의 재제출 API를 임의로 추가하지 않음.
+- 미사용 증빙 전용 API가 없어 발전소의 활동 상세를 조회하여 점유 여부를 확인.
+  5건씩 제한하여 조회하며 일부 조회가 실패하면 증빙 선택을 허용하지 않음.
+  대량 데이터 성능은 추후 미사용 증빙 조회 API가 있으면 개선 가능.
+- 검토자 이름이 없는 활동/영상 검토 응답은 ID임을 명시하여 표시. 임의 이름을 생성하지 않음.
+
+6. 주요 파일
+src/views/ReportApproval.jsx, ReportCenterView.jsx/.css
+src/views/FarmingActivitiesView.jsx, ActivityEvidence.jsx
+src/views/PlanActions.jsx, PlanAssessmentView.jsx, VisionHistory.jsx
+src/components/WorkflowUI.jsx, Workflow.css
+src/lib/api.js, workflow.js, permissions.js, src/App.jsx
+tests/workflow.test.mjs, tests/workflow.browser.cjs
+
+브라우저 검증 재현
+- Playwright 모듈과 Chromium이 필요함.
+- npm run build 후 node tests/workflow.browser.cjs 실행.
+- 별도 위치의 Playwright는 PLAYWRIGHT_MODULE, 설치된 브라우저는 BROWSER_EXECUTABLE 환경변수로 지정 가능.
+- TASK_FRONTEND_DIST 미지정 시 저장소 dist를 사용. 외부 네트워크는 차단하고 API는 테스트 응답만 사용.
