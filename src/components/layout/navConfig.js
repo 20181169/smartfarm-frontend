@@ -6,6 +6,7 @@ import {
 } from 'lucide-react'
 
 const ITEM = {
+  farmingWorkspace: { to: '/farming-workspace', label: '영농관리 · 로컬 시연', icon: Sprout },
   dashboard: { to: '/', label: '현재상태', icon: LayoutDashboard, end: true },
   equipment: { to: '/equipment', label: '설비', icon: Cpu },
   calendar: { to: '/calendar', label: '달력보기', icon: CalendarDays },
@@ -49,7 +50,7 @@ export function navigationItems(user, menuRole) {
   const ordered = NAV_BY_ROLE[menuRole] || NAV_BY_ROLE.owner
   // Role only orders menus. Permission-bearing screens are available to every
   // account that the server grants access, including operators and viewers.
-  const items = [...ordered, ...Object.values(ITEM).filter((item) => ROUTE_PERMISSIONS[item.to])]
+  const items = [ITEM.farmingWorkspace, ...ordered, ...Object.values(ITEM).filter((item) => ROUTE_PERMISSIONS[item.to])]
   return items.filter((item, i) => items.findIndex((x) => x.to === item.to) === i)
     .filter((item) => !ROUTE_PERMISSIONS[item.to] || ROUTE_PERMISSIONS[item.to].every((code) => hasPermission(user, code)))
 }

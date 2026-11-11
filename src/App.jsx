@@ -11,6 +11,7 @@ import Layout from './components/layout/Layout'
 import RequirePermission from './components/RequirePermission'
 import { ROUTE_PERMISSIONS } from './lib/permissions'
 
+import FarmingWorkspaceView from './views/FarmingWorkspaceView'
 import DashboardView from './views/DashboardView'
 import EquipmentView from './views/EquipmentView'
 import CalendarView from './views/CalendarView'
@@ -55,6 +56,8 @@ export default function App() {
             </AppProvider>
           }
         >
+          <Route path="farming-workspace" element={<FarmingWorkspaceView />} />
+
           <Route
             index
             element={<DashboardView />}

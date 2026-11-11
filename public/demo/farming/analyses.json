@@ -1,0 +1,1245 @@
+{
+  "version": 1,
+  "generatedAt": "2026-11-11T06:12:18.872886+00:00",
+  "source": "local-fixture",
+  "items": [
+    {
+      "id": "rice-01",
+      "title": "논 전경 01",
+      "kind": "rice_stage",
+      "image": "rice/rice-01.jpg",
+      "annotated": null,
+      "capturedAt": null,
+      "analyzedAt": "2026-11-11T05:06:47.930602+00:00",
+      "sourceName": "sent_capture_fuji_rice.jpg",
+      "sourceGroup": "sent_capture_fuji_rice",
+      "sourceNote": "외부 논 전경 테스트 사진 · 실발전소 촬영 자료 아님",
+      "analysis": {
+        "analysis_type": "rice_stage",
+        "model_id": "dongyang/rice-stage-single-robust-v2-yolo11n-cls",
+        "model_revision": "fe6dc6ca1e2af01919ae35a197d59d0886d80e95dc12ad735c531330a343881e",
+        "threshold": 0.65,
+        "rice_stage": {
+          "stage": "SOWING",
+          "stage_name": "파종·모내기",
+          "confidence": 0.9909160733222961,
+          "probabilities": {
+            "FLOWERING": 0.000642431783489883,
+            "HARVEST": 0.00813320092856884,
+            "SOWING": 0.9909160733222961,
+            "VEGETATIVE": 0.0003083582560066134
+          },
+          "needs_review": false
+        },
+        "detections": [],
+        "counts": {},
+        "width": 1391,
+        "height": 774,
+        "inference_ms": 2245
+      }
+    },
+    {
+      "id": "rice-02",
+      "title": "논 전경 02",
+      "kind": "rice_stage",
+      "image": "rice/rice-02.jpg",
+      "annotated": null,
+      "capturedAt": null,
+      "analyzedAt": "2026-11-11T05:06:47.930602+00:00",
+      "sourceName": "wide_fuji_rice_live_frame.jpg",
+      "sourceGroup": "wide_fuji_rice_live_frame",
+      "sourceNote": "외부 논 전경 테스트 사진 · 실발전소 촬영 자료 아님",
+      "analysis": {
+        "analysis_type": "rice_stage",
+        "model_id": "dongyang/rice-stage-single-robust-v2-yolo11n-cls",
+        "model_revision": "fe6dc6ca1e2af01919ae35a197d59d0886d80e95dc12ad735c531330a343881e",
+        "threshold": 0.65,
+        "rice_stage": {
+          "stage": "SOWING",
+          "stage_name": "파종·모내기",
+          "confidence": 0.6505534052848816,
+          "probabilities": {
+            "FLOWERING": 0.08088268339633942,
+            "HARVEST": 0.25335627794265747,
+            "SOWING": 0.6505534052848816,
+            "VEGETATIVE": 0.015207743272185326
+          },
+          "needs_review": false
+        },
+        "detections": [],
+        "counts": {},
+        "width": 1920,
+        "height": 1080,
+        "inference_ms": 24
+      }
+    },
+    {
+      "id": "rice-03",
+      "title": "논 전경 03",
+      "kind": "rice_stage",
+      "image": "rice/rice-03.jpg",
+      "annotated": null,
+      "capturedAt": null,
+      "analyzedAt": "2026-11-11T05:06:47.930602+00:00",
+      "sourceName": "wide_hamanoura_tanada_20260827_13.jpg",
+      "sourceGroup": "wide_hamanoura_tanada_20260827_13",
+      "sourceNote": "외부 논 전경 테스트 사진 · 실발전소 촬영 자료 아님",
+      "analysis": {
+        "analysis_type": "rice_stage",
+        "model_id": "dongyang/rice-stage-single-robust-v2-yolo11n-cls",
+        "model_revision": "fe6dc6ca1e2af01919ae35a197d59d0886d80e95dc12ad735c531330a343881e",
+        "threshold": 0.65,
+        "rice_stage": {
+          "stage": "HARVEST",
+          "stage_name": "수확기",
+          "confidence": 0.5274674296379089,
+          "probabilities": {
+            "FLOWERING": 0.035055454820394516,
+            "HARVEST": 0.5274674296379089,
+            "SOWING": 0.34063342213630676,
+            "VEGETATIVE": 0.09684371948242188
+          },
+          "needs_review": true
+        },
+        "detections": [],
+        "counts": {},
+        "width": 1280,
+        "height": 960,
+        "inference_ms": 14
+      }
+    },
+    {
+      "id": "rice-04",
+      "title": "논 전경 04",
+      "kind": "rice_stage",
+      "image": "rice/rice-04.jpg",
+      "annotated": null,
+      "capturedAt": null,
+      "analyzedAt": "2026-11-11T05:06:47.930602+00:00",
+      "sourceName": "wide_nakano_tanada_live.jpg",
+      "sourceGroup": "wide_nakano_tanada_live",
+      "sourceNote": "외부 논 전경 테스트 사진 · 실발전소 촬영 자료 아님",
+      "analysis": {
+        "analysis_type": "rice_stage",
+        "model_id": "dongyang/rice-stage-single-robust-v2-yolo11n-cls",
+        "model_revision": "fe6dc6ca1e2af01919ae35a197d59d0886d80e95dc12ad735c531330a343881e",
+        "threshold": 0.65,
+        "rice_stage": {
+          "stage": "SOWING",
+          "stage_name": "파종·모내기",
+          "confidence": 0.8785049915313721,
+          "probabilities": {
+            "FLOWERING": 0.01311143022030592,
+            "HARVEST": 0.006256431806832552,
+            "SOWING": 0.8785049915313721,
+            "VEGETATIVE": 0.10212714225053787
+          },
+          "needs_review": false
+        },
+        "detections": [],
+        "counts": {},
+        "width": 1280,
+        "height": 720,
+        "inference_ms": 12
+      }
+    },
+    {
+      "id": "tractor-01",
+      "title": "농기계 작업 샘플",
+      "kind": "object_detection",
+      "image": "originals/tractor.jpg",
+      "annotated": "tractor/tractor-detected.jpg",
+      "capturedAt": null,
+      "analyzedAt": null,
+      "sourceGroup": "tractor-sample",
+      "sourceName": "tractor.jpg",
+      "sourceNote": "기존 트랙터 모델 분석 샘플 · 실발전소 촬영 자료 아님",
+      "analysis": {
+        "model_id": "IDEA-Research/grounding-dino-tiny",
+        "model_revision": "a2bb814dd30d776dcf7e30523b00659f4f141c71",
+        "prompt": "tractor. person. car. truck. bus.",
+        "threshold": 0.35,
+        "detections": [
+          {
+            "label": "person",
+            "score": 0.7719,
+            "box": [
+              0.838405430316925,
+              0.3660047650337219,
+              0.8680784106254578,
+              0.4828234910964966
+            ]
+          },
+          {
+            "label": "person",
+            "score": 0.751,
+            "box": [
+              0.8635981678962708,
+              0.36711710691452026,
+              0.8960137963294983,
+              0.4807710647583008
+            ]
+          },
+          {
+            "label": "person",
+            "score": 0.6056,
+            "box": [
+              0.17842145264148712,
+              0.24065282940864563,
+              0.1972164362668991,
+              0.3235854208469391
+            ]
+          },
+          {
+            "label": "person",
+            "score": 0.5754,
+            "box": [
+              0.26585647463798523,
+              0.34380006790161133,
+              0.27805134654045105,
+              0.3891872763633728
+            ]
+          },
+          {
+            "label": "person",
+            "score": 0.4982,
+            "box": [
+              0.9664082527160645,
+              0.3872107267379761,
+              0.99245285987854,
+              0.47362565994262695
+            ]
+          },
+          {
+            "label": "person",
+            "score": 0.497,
+            "box": [
+              0.7414432168006897,
+              0.3567013144493103,
+              0.7698387503623962,
+              0.413473904132843
+            ]
+          },
+          {
+            "label": "person",
+            "score": 0.4776,
+            "box": [
+              0.10680672526359558,
+              0.2363654375076294,
+              0.12827253341674805,
+              0.3228265643119812
+            ]
+          },
+          {
+            "label": "tractor",
+            "score": 0.4677,
+            "box": [
+              0.3818722367286682,
+              0.21891383826732635,
+              0.8772602677345276,
+              0.7031511664390564
+            ]
+          },
+          {
+            "label": "person",
+            "score": 0.4481,
+            "box": [
+              0.253094345331192,
+              0.35396501421928406,
+              0.26592984795570374,
+              0.38640502095222473
+            ]
+          },
+          {
+            "label": "person",
+            "score": 0.4354,
+            "box": [
+              0.4496743381023407,
+              0.3258092403411865,
+              0.4624716341495514,
+              0.352123498916626
+            ]
+          },
+          {
+            "label": "person",
+            "score": 0.4144,
+            "box": [
+              0.34527096152305603,
+              0.3353356122970581,
+              0.3582548201084137,
+              0.3878188729286194
+            ]
+          },
+          {
+            "label": "truck",
+            "score": 0.4138,
+            "box": [
+              0.00031332671642303467,
+              0.0005373954772949219,
+              0.26187366247177124,
+              0.49529972672462463
+            ]
+          },
+          {
+            "label": "person",
+            "score": 0.4096,
+            "box": [
+              0.3326246440410614,
+              0.34264063835144043,
+              0.35123756527900696,
+              0.38790011405944824
+            ]
+          },
+          {
+            "label": "person",
+            "score": 0.3694,
+            "box": [
+              0.10728225111961365,
+              0.2364812195301056,
+              0.12708401679992676,
+              0.28270670771598816
+            ]
+          }
+        ],
+        "counts": {
+          "tractor": 1,
+          "person": 12,
+          "car": 0,
+          "truck": 1,
+          "bus": 0
+        },
+        "inference_ms": 3912,
+        "width": 800,
+        "height": 600,
+        "sample_url": "https://raw.githubusercontent.com/EliSchwartz/imagenet-sample-images/master/n04465501_tractor.JPEG"
+      }
+    },
+    {
+      "id": "rice-extra-3b1c179daf89",
+      "title": "논 관찰 2025-05-25",
+      "kind": "rice_stage",
+      "image": "rice/rice-extra-3b1c179daf89.jpg",
+      "annotated": null,
+      "capturedAt": null,
+      "capturedDate": "2025-05-25",
+      "analyzedAt": "2026-11-11T06:12:18.872886+00:00",
+      "sourceName": "sowing_hollandrice_2025_2025-05-25.jpg",
+      "sourceGroup": "hollandrice",
+      "sourceUrl": "https://phenocam.nau.edu/data/archive/hollandrice/2025/05/hollandrice_2025_05_25_120506.jpg",
+      "sourceNote": "기존 논 AI 테스트 데이터셋 · 외부 관측지 사진 · 실발전소 자료 아님",
+      "datasetLabel": "SOWING",
+      "analysis": {
+        "analysis_type": "rice_stage",
+        "model_id": "dongyang/rice-stage-single-robust-v2-yolo11n-cls",
+        "model_revision": "fe6dc6ca1e2af01919ae35a197d59d0886d80e95dc12ad735c531330a343881e",
+        "threshold": 0.65,
+        "rice_stage": {
+          "stage": "SOWING",
+          "stage_name": "파종·모내기",
+          "confidence": 0.9986578226089478,
+          "probabilities": {
+            "FLOWERING": 1.7893918993650004e-05,
+            "HARVEST": 5.5634423915762454e-05,
+            "SOWING": 0.9986578226089478,
+            "VEGETATIVE": 0.001268615946173668
+          },
+          "needs_review": false
+        },
+        "detections": [],
+        "counts": {},
+        "width": 1296,
+        "height": 912,
+        "inference_ms": 2390
+      },
+      "anomalyCandidate": {
+        "source": "demo",
+        "reason": "시연 시나리오: 파종·모내기 후 논 상태를 현장에서 확인하는 요청입니다. 실제 이상 탐지 결과가 아닙니다.",
+        "createdAt": "2026-11-11T06:12:18.872886+00:00"
+      }
+    },
+    {
+      "id": "rice-extra-79d4f8e8391f",
+      "title": "논 관찰 2025-05-29",
+      "kind": "rice_stage",
+      "image": "rice/rice-extra-79d4f8e8391f.jpg",
+      "annotated": null,
+      "capturedAt": null,
+      "capturedDate": "2025-05-29",
+      "analyzedAt": "2026-11-11T06:12:18.872886+00:00",
+      "sourceName": "sowing_hollandrice_2025_2025-05-29.jpg",
+      "sourceGroup": "hollandrice",
+      "sourceUrl": "https://phenocam.nau.edu/data/archive/hollandrice/2025/05/hollandrice_2025_05_29_120506.jpg",
+      "sourceNote": "기존 논 AI 테스트 데이터셋 · 외부 관측지 사진 · 실발전소 자료 아님",
+      "datasetLabel": "SOWING",
+      "analysis": {
+        "analysis_type": "rice_stage",
+        "model_id": "dongyang/rice-stage-single-robust-v2-yolo11n-cls",
+        "model_revision": "fe6dc6ca1e2af01919ae35a197d59d0886d80e95dc12ad735c531330a343881e",
+        "threshold": 0.65,
+        "rice_stage": {
+          "stage": "SOWING",
+          "stage_name": "파종·모내기",
+          "confidence": 0.9509809613227844,
+          "probabilities": {
+            "FLOWERING": 0.0002950453490484506,
+            "HARVEST": 0.00023185070313047618,
+            "SOWING": 0.9509809613227844,
+            "VEGETATIVE": 0.04849204793572426
+          },
+          "needs_review": false
+        },
+        "detections": [],
+        "counts": {},
+        "width": 1296,
+        "height": 912,
+        "inference_ms": 16
+      }
+    },
+    {
+      "id": "rice-extra-c5b76432cc9f",
+      "title": "논 관찰 2025-06-03",
+      "kind": "rice_stage",
+      "image": "rice/rice-extra-c5b76432cc9f.jpg",
+      "annotated": null,
+      "capturedAt": null,
+      "capturedDate": "2025-06-03",
+      "analyzedAt": "2026-11-11T06:12:18.872886+00:00",
+      "sourceName": "sowing_hollandrice_2025_2025-06-03.jpg",
+      "sourceGroup": "hollandrice",
+      "sourceUrl": "https://phenocam.nau.edu/data/archive/hollandrice/2025/06/hollandrice_2025_06_03_120506.jpg",
+      "sourceNote": "기존 논 AI 테스트 데이터셋 · 외부 관측지 사진 · 실발전소 자료 아님",
+      "datasetLabel": "SOWING",
+      "analysis": {
+        "analysis_type": "rice_stage",
+        "model_id": "dongyang/rice-stage-single-robust-v2-yolo11n-cls",
+        "model_revision": "fe6dc6ca1e2af01919ae35a197d59d0886d80e95dc12ad735c531330a343881e",
+        "threshold": 0.65,
+        "rice_stage": {
+          "stage": "SOWING",
+          "stage_name": "파종·모내기",
+          "confidence": 0.999850869178772,
+          "probabilities": {
+            "FLOWERING": 3.0087860068306327e-05,
+            "HARVEST": 2.5160070435958914e-05,
+            "SOWING": 0.999850869178772,
+            "VEGETATIVE": 9.380715346196666e-05
+          },
+          "needs_review": false
+        },
+        "detections": [],
+        "counts": {},
+        "width": 1296,
+        "height": 912,
+        "inference_ms": 16
+      }
+    },
+    {
+      "id": "rice-extra-a56634d5985e",
+      "title": "논 관찰 2025-06-06",
+      "kind": "rice_stage",
+      "image": "rice/rice-extra-a56634d5985e.jpg",
+      "annotated": null,
+      "capturedAt": null,
+      "capturedDate": "2025-06-06",
+      "analyzedAt": "2026-11-11T06:12:18.872886+00:00",
+      "sourceName": "sowing_hollandrice_2025_2025-06-06.jpg",
+      "sourceGroup": "hollandrice",
+      "sourceUrl": "https://phenocam.nau.edu/data/archive/hollandrice/2025/06/hollandrice_2025_06_06_120506.jpg",
+      "sourceNote": "기존 논 AI 테스트 데이터셋 · 외부 관측지 사진 · 실발전소 자료 아님",
+      "datasetLabel": "SOWING",
+      "analysis": {
+        "analysis_type": "rice_stage",
+        "model_id": "dongyang/rice-stage-single-robust-v2-yolo11n-cls",
+        "model_revision": "fe6dc6ca1e2af01919ae35a197d59d0886d80e95dc12ad735c531330a343881e",
+        "threshold": 0.65,
+        "rice_stage": {
+          "stage": "SOWING",
+          "stage_name": "파종·모내기",
+          "confidence": 0.9989194869995117,
+          "probabilities": {
+            "FLOWERING": 4.184051067568362e-05,
+            "HARVEST": 5.6879918702179566e-05,
+            "SOWING": 0.9989194869995117,
+            "VEGETATIVE": 0.0009818080579861999
+          },
+          "needs_review": false
+        },
+        "detections": [],
+        "counts": {},
+        "width": 1296,
+        "height": 912,
+        "inference_ms": 16
+      }
+    },
+    {
+      "id": "rice-extra-6c169f261c9d",
+      "title": "논 관찰 2025-06-11",
+      "kind": "rice_stage",
+      "image": "rice/rice-extra-6c169f261c9d.jpg",
+      "annotated": null,
+      "capturedAt": null,
+      "capturedDate": "2025-06-11",
+      "analyzedAt": "2026-11-11T06:12:18.872886+00:00",
+      "sourceName": "sowing_hollandrice_2025_2025-06-11.jpg",
+      "sourceGroup": "hollandrice",
+      "sourceUrl": "https://phenocam.nau.edu/data/archive/hollandrice/2025/06/hollandrice_2025_06_11_120529.jpg",
+      "sourceNote": "기존 논 AI 테스트 데이터셋 · 외부 관측지 사진 · 실발전소 자료 아님",
+      "datasetLabel": "SOWING",
+      "analysis": {
+        "analysis_type": "rice_stage",
+        "model_id": "dongyang/rice-stage-single-robust-v2-yolo11n-cls",
+        "model_revision": "fe6dc6ca1e2af01919ae35a197d59d0886d80e95dc12ad735c531330a343881e",
+        "threshold": 0.65,
+        "rice_stage": {
+          "stage": "SOWING",
+          "stage_name": "파종·모내기",
+          "confidence": 0.9983837604522705,
+          "probabilities": {
+            "FLOWERING": 3.025478326890152e-05,
+            "HARVEST": 0.00016278041584882885,
+            "SOWING": 0.9983837604522705,
+            "VEGETATIVE": 0.0014232543762773275
+          },
+          "needs_review": false
+        },
+        "detections": [],
+        "counts": {},
+        "width": 1296,
+        "height": 912,
+        "inference_ms": 15
+      }
+    },
+    {
+      "id": "rice-extra-24aa6714700a",
+      "title": "논 관찰 2025-06-15",
+      "kind": "rice_stage",
+      "image": "rice/rice-extra-24aa6714700a.jpg",
+      "annotated": null,
+      "capturedAt": null,
+      "capturedDate": "2025-06-15",
+      "analyzedAt": "2026-11-11T06:12:18.872886+00:00",
+      "sourceName": "sowing_hollandrice_2025_2025-06-15.jpg",
+      "sourceGroup": "hollandrice",
+      "sourceUrl": "https://phenocam.nau.edu/data/archive/hollandrice/2025/06/hollandrice_2025_06_15_120505.jpg",
+      "sourceNote": "기존 논 AI 테스트 데이터셋 · 외부 관측지 사진 · 실발전소 자료 아님",
+      "datasetLabel": "SOWING",
+      "analysis": {
+        "analysis_type": "rice_stage",
+        "model_id": "dongyang/rice-stage-single-robust-v2-yolo11n-cls",
+        "model_revision": "fe6dc6ca1e2af01919ae35a197d59d0886d80e95dc12ad735c531330a343881e",
+        "threshold": 0.65,
+        "rice_stage": {
+          "stage": "SOWING",
+          "stage_name": "파종·모내기",
+          "confidence": 0.6053372025489807,
+          "probabilities": {
+            "FLOWERING": 0.04933303967118263,
+            "HARVEST": 0.006728136911988258,
+            "SOWING": 0.6053372025489807,
+            "VEGETATIVE": 0.33860161900520325
+          },
+          "needs_review": true
+        },
+        "detections": [],
+        "counts": {},
+        "width": 1296,
+        "height": 912,
+        "inference_ms": 15
+      }
+    },
+    {
+      "id": "rice-extra-218d6856ab5f",
+      "title": "논 관찰 2025-06-20",
+      "kind": "rice_stage",
+      "image": "rice/rice-extra-218d6856ab5f.jpg",
+      "annotated": null,
+      "capturedAt": null,
+      "capturedDate": "2025-06-20",
+      "analyzedAt": "2026-11-11T06:12:18.872886+00:00",
+      "sourceName": "vegetative_hollandrice_2025_2025-06-20.jpg",
+      "sourceGroup": "hollandrice",
+      "sourceUrl": "https://phenocam.nau.edu/data/archive/hollandrice/2025/06/hollandrice_2025_06_20_120505.jpg",
+      "sourceNote": "기존 논 AI 테스트 데이터셋 · 외부 관측지 사진 · 실발전소 자료 아님",
+      "datasetLabel": "VEGETATIVE",
+      "analysis": {
+        "analysis_type": "rice_stage",
+        "model_id": "dongyang/rice-stage-single-robust-v2-yolo11n-cls",
+        "model_revision": "fe6dc6ca1e2af01919ae35a197d59d0886d80e95dc12ad735c531330a343881e",
+        "threshold": 0.65,
+        "rice_stage": {
+          "stage": "VEGETATIVE",
+          "stage_name": "영양생장",
+          "confidence": 0.8016013503074646,
+          "probabilities": {
+            "FLOWERING": 0.026848668232560158,
+            "HARVEST": 0.0017399006756022573,
+            "SOWING": 0.16981013119220734,
+            "VEGETATIVE": 0.8016013503074646
+          },
+          "needs_review": false
+        },
+        "detections": [],
+        "counts": {},
+        "width": 1296,
+        "height": 912,
+        "inference_ms": 14
+      },
+      "anomalyCandidate": {
+        "source": "demo",
+        "reason": "시연 시나리오: 생육 상태와 관수 여부를 점검하는 요청입니다. 실제 이상 탐지 결과가 아닙니다.",
+        "createdAt": "2026-11-11T06:12:18.872886+00:00"
+      }
+    },
+    {
+      "id": "rice-extra-ba17c3e0a8f0",
+      "title": "논 관찰 2025-06-28",
+      "kind": "rice_stage",
+      "image": "rice/rice-extra-ba17c3e0a8f0.jpg",
+      "annotated": null,
+      "capturedAt": null,
+      "capturedDate": "2025-06-28",
+      "analyzedAt": "2026-11-11T06:12:18.872886+00:00",
+      "sourceName": "vegetative_hollandrice_2025_2025-06-28.jpg",
+      "sourceGroup": "hollandrice",
+      "sourceUrl": "https://phenocam.nau.edu/data/archive/hollandrice/2025/06/hollandrice_2025_06_28_120505.jpg",
+      "sourceNote": "기존 논 AI 테스트 데이터셋 · 외부 관측지 사진 · 실발전소 자료 아님",
+      "datasetLabel": "VEGETATIVE",
+      "analysis": {
+        "analysis_type": "rice_stage",
+        "model_id": "dongyang/rice-stage-single-robust-v2-yolo11n-cls",
+        "model_revision": "fe6dc6ca1e2af01919ae35a197d59d0886d80e95dc12ad735c531330a343881e",
+        "threshold": 0.65,
+        "rice_stage": {
+          "stage": "VEGETATIVE",
+          "stage_name": "영양생장",
+          "confidence": 0.8405857682228088,
+          "probabilities": {
+            "FLOWERING": 0.1375848650932312,
+            "HARVEST": 0.0018383740680292249,
+            "SOWING": 0.019990969449281693,
+            "VEGETATIVE": 0.8405857682228088
+          },
+          "needs_review": false
+        },
+        "detections": [],
+        "counts": {},
+        "width": 1296,
+        "height": 912,
+        "inference_ms": 15
+      }
+    },
+    {
+      "id": "rice-extra-daf56a28a950",
+      "title": "논 관찰 2025-07-08",
+      "kind": "rice_stage",
+      "image": "rice/rice-extra-daf56a28a950.jpg",
+      "annotated": null,
+      "capturedAt": null,
+      "capturedDate": "2025-07-08",
+      "analyzedAt": "2026-11-11T06:12:18.872886+00:00",
+      "sourceName": "vegetative_hollandrice_2025_2025-07-08.jpg",
+      "sourceGroup": "hollandrice",
+      "sourceUrl": "https://phenocam.nau.edu/data/archive/hollandrice/2025/07/hollandrice_2025_07_08_120505.jpg",
+      "sourceNote": "기존 논 AI 테스트 데이터셋 · 외부 관측지 사진 · 실발전소 자료 아님",
+      "datasetLabel": "VEGETATIVE",
+      "analysis": {
+        "analysis_type": "rice_stage",
+        "model_id": "dongyang/rice-stage-single-robust-v2-yolo11n-cls",
+        "model_revision": "fe6dc6ca1e2af01919ae35a197d59d0886d80e95dc12ad735c531330a343881e",
+        "threshold": 0.65,
+        "rice_stage": {
+          "stage": "VEGETATIVE",
+          "stage_name": "영양생장",
+          "confidence": 0.47989222407341003,
+          "probabilities": {
+            "FLOWERING": 0.3875313997268677,
+            "HARVEST": 0.009634778834879398,
+            "SOWING": 0.12294161319732666,
+            "VEGETATIVE": 0.47989222407341003
+          },
+          "needs_review": true
+        },
+        "detections": [],
+        "counts": {},
+        "width": 1296,
+        "height": 912,
+        "inference_ms": 15
+      }
+    },
+    {
+      "id": "rice-extra-7a8f4f799dba",
+      "title": "논 관찰 2025-07-13",
+      "kind": "rice_stage",
+      "image": "rice/rice-extra-7a8f4f799dba.jpg",
+      "annotated": null,
+      "capturedAt": null,
+      "capturedDate": "2025-07-13",
+      "analyzedAt": "2026-11-11T06:12:18.872886+00:00",
+      "sourceName": "vegetative_hollandrice_2025_2025-07-13.jpg",
+      "sourceGroup": "hollandrice",
+      "sourceUrl": "https://phenocam.nau.edu/data/archive/hollandrice/2025/07/hollandrice_2025_07_13_120505.jpg",
+      "sourceNote": "기존 논 AI 테스트 데이터셋 · 외부 관측지 사진 · 실발전소 자료 아님",
+      "datasetLabel": "VEGETATIVE",
+      "analysis": {
+        "analysis_type": "rice_stage",
+        "model_id": "dongyang/rice-stage-single-robust-v2-yolo11n-cls",
+        "model_revision": "fe6dc6ca1e2af01919ae35a197d59d0886d80e95dc12ad735c531330a343881e",
+        "threshold": 0.65,
+        "rice_stage": {
+          "stage": "FLOWERING",
+          "stage_name": "출수·개화",
+          "confidence": 0.7404263019561768,
+          "probabilities": {
+            "FLOWERING": 0.7404263019561768,
+            "HARVEST": 0.004816791508346796,
+            "SOWING": 0.012977324426174164,
+            "VEGETATIVE": 0.24177947640419006
+          },
+          "needs_review": false
+        },
+        "detections": [],
+        "counts": {},
+        "width": 1296,
+        "height": 912,
+        "inference_ms": 15
+      }
+    },
+    {
+      "id": "rice-extra-c34e633b757a",
+      "title": "논 관찰 2025-07-23",
+      "kind": "rice_stage",
+      "image": "rice/rice-extra-c34e633b757a.jpg",
+      "annotated": null,
+      "capturedAt": null,
+      "capturedDate": "2025-07-23",
+      "analyzedAt": "2026-11-11T06:12:18.872886+00:00",
+      "sourceName": "vegetative_hollandrice_2025_2025-07-23.jpg",
+      "sourceGroup": "hollandrice",
+      "sourceUrl": "https://phenocam.nau.edu/data/archive/hollandrice/2025/07/hollandrice_2025_07_23_120506.jpg",
+      "sourceNote": "기존 논 AI 테스트 데이터셋 · 외부 관측지 사진 · 실발전소 자료 아님",
+      "datasetLabel": "VEGETATIVE",
+      "analysis": {
+        "analysis_type": "rice_stage",
+        "model_id": "dongyang/rice-stage-single-robust-v2-yolo11n-cls",
+        "model_revision": "fe6dc6ca1e2af01919ae35a197d59d0886d80e95dc12ad735c531330a343881e",
+        "threshold": 0.65,
+        "rice_stage": {
+          "stage": "FLOWERING",
+          "stage_name": "출수·개화",
+          "confidence": 0.9251324534416199,
+          "probabilities": {
+            "FLOWERING": 0.9251324534416199,
+            "HARVEST": 0.00771642429754138,
+            "SOWING": 0.005026889033615589,
+            "VEGETATIVE": 0.06212430074810982
+          },
+          "needs_review": false
+        },
+        "detections": [],
+        "counts": {},
+        "width": 1296,
+        "height": 912,
+        "inference_ms": 15
+      }
+    },
+    {
+      "id": "rice-extra-43c556db0140",
+      "title": "논 관찰 2025-07-31",
+      "kind": "rice_stage",
+      "image": "rice/rice-extra-43c556db0140.jpg",
+      "annotated": null,
+      "capturedAt": null,
+      "capturedDate": "2025-07-31",
+      "analyzedAt": "2026-11-11T06:12:18.872886+00:00",
+      "sourceName": "vegetative_hollandrice_2025_2025-07-31.jpg",
+      "sourceGroup": "hollandrice",
+      "sourceUrl": "https://phenocam.nau.edu/data/archive/hollandrice/2025/07/hollandrice_2025_07_31_120506.jpg",
+      "sourceNote": "기존 논 AI 테스트 데이터셋 · 외부 관측지 사진 · 실발전소 자료 아님",
+      "datasetLabel": "VEGETATIVE",
+      "analysis": {
+        "analysis_type": "rice_stage",
+        "model_id": "dongyang/rice-stage-single-robust-v2-yolo11n-cls",
+        "model_revision": "fe6dc6ca1e2af01919ae35a197d59d0886d80e95dc12ad735c531330a343881e",
+        "threshold": 0.65,
+        "rice_stage": {
+          "stage": "FLOWERING",
+          "stage_name": "출수·개화",
+          "confidence": 0.5505027770996094,
+          "probabilities": {
+            "FLOWERING": 0.5505027770996094,
+            "HARVEST": 0.0015151998959481716,
+            "SOWING": 0.0774344652891159,
+            "VEGETATIVE": 0.37054747343063354
+          },
+          "needs_review": true
+        },
+        "detections": [],
+        "counts": {},
+        "width": 1296,
+        "height": 912,
+        "inference_ms": 15
+      }
+    },
+    {
+      "id": "rice-extra-2c3642acc79e",
+      "title": "논 관찰 2025-08-05",
+      "kind": "rice_stage",
+      "image": "rice/rice-extra-2c3642acc79e.jpg",
+      "annotated": null,
+      "capturedAt": null,
+      "capturedDate": "2025-08-05",
+      "analyzedAt": "2026-11-11T06:12:18.872886+00:00",
+      "sourceName": "flowering_hollandrice_2025_2025-08-05.jpg",
+      "sourceGroup": "hollandrice",
+      "sourceUrl": "https://phenocam.nau.edu/data/archive/hollandrice/2025/08/hollandrice_2025_08_05_120506.jpg",
+      "sourceNote": "기존 논 AI 테스트 데이터셋 · 외부 관측지 사진 · 실발전소 자료 아님",
+      "datasetLabel": "FLOWERING",
+      "analysis": {
+        "analysis_type": "rice_stage",
+        "model_id": "dongyang/rice-stage-single-robust-v2-yolo11n-cls",
+        "model_revision": "fe6dc6ca1e2af01919ae35a197d59d0886d80e95dc12ad735c531330a343881e",
+        "threshold": 0.65,
+        "rice_stage": {
+          "stage": "FLOWERING",
+          "stage_name": "출수·개화",
+          "confidence": 0.48616716265678406,
+          "probabilities": {
+            "FLOWERING": 0.48616716265678406,
+            "HARVEST": 0.0005805605323985219,
+            "SOWING": 0.03963188827037811,
+            "VEGETATIVE": 0.4736204445362091
+          },
+          "needs_review": true
+        },
+        "detections": [],
+        "counts": {},
+        "width": 1296,
+        "height": 912,
+        "inference_ms": 15
+      }
+    },
+    {
+      "id": "rice-extra-546a97d8addf",
+      "title": "논 관찰 2025-08-09",
+      "kind": "rice_stage",
+      "image": "rice/rice-extra-546a97d8addf.jpg",
+      "annotated": null,
+      "capturedAt": null,
+      "capturedDate": "2025-08-09",
+      "analyzedAt": "2026-11-11T06:12:18.872886+00:00",
+      "sourceName": "flowering_hollandrice_2025_2025-08-09.jpg",
+      "sourceGroup": "hollandrice",
+      "sourceUrl": "https://phenocam.nau.edu/data/archive/hollandrice/2025/08/hollandrice_2025_08_09_120505.jpg",
+      "sourceNote": "기존 논 AI 테스트 데이터셋 · 외부 관측지 사진 · 실발전소 자료 아님",
+      "datasetLabel": "FLOWERING",
+      "analysis": {
+        "analysis_type": "rice_stage",
+        "model_id": "dongyang/rice-stage-single-robust-v2-yolo11n-cls",
+        "model_revision": "fe6dc6ca1e2af01919ae35a197d59d0886d80e95dc12ad735c531330a343881e",
+        "threshold": 0.65,
+        "rice_stage": {
+          "stage": "VEGETATIVE",
+          "stage_name": "영양생장",
+          "confidence": 0.6896085739135742,
+          "probabilities": {
+            "FLOWERING": 0.2691716253757477,
+            "HARVEST": 0.0007009675027802587,
+            "SOWING": 0.040518756955862045,
+            "VEGETATIVE": 0.6896085739135742
+          },
+          "needs_review": false
+        },
+        "detections": [],
+        "counts": {},
+        "width": 1296,
+        "height": 912,
+        "inference_ms": 17
+      }
+    },
+    {
+      "id": "rice-extra-ef858602ed69",
+      "title": "논 관찰 2025-08-14",
+      "kind": "rice_stage",
+      "image": "rice/rice-extra-ef858602ed69.jpg",
+      "annotated": null,
+      "capturedAt": null,
+      "capturedDate": "2025-08-14",
+      "analyzedAt": "2026-11-11T06:12:18.872886+00:00",
+      "sourceName": "flowering_hollandrice_2025_2025-08-14.jpg",
+      "sourceGroup": "hollandrice",
+      "sourceUrl": "https://phenocam.nau.edu/data/archive/hollandrice/2025/08/hollandrice_2025_08_14_120506.jpg",
+      "sourceNote": "기존 논 AI 테스트 데이터셋 · 외부 관측지 사진 · 실발전소 자료 아님",
+      "datasetLabel": "FLOWERING",
+      "analysis": {
+        "analysis_type": "rice_stage",
+        "model_id": "dongyang/rice-stage-single-robust-v2-yolo11n-cls",
+        "model_revision": "fe6dc6ca1e2af01919ae35a197d59d0886d80e95dc12ad735c531330a343881e",
+        "threshold": 0.65,
+        "rice_stage": {
+          "stage": "FLOWERING",
+          "stage_name": "출수·개화",
+          "confidence": 0.9318367838859558,
+          "probabilities": {
+            "FLOWERING": 0.9318367838859558,
+            "HARVEST": 0.0012612879509106278,
+            "SOWING": 0.006172706373035908,
+            "VEGETATIVE": 0.060729265213012695
+          },
+          "needs_review": false
+        },
+        "detections": [],
+        "counts": {},
+        "width": 1296,
+        "height": 912,
+        "inference_ms": 17
+      }
+    },
+    {
+      "id": "rice-extra-e727f82770b7",
+      "title": "논 관찰 2025-08-16",
+      "kind": "rice_stage",
+      "image": "rice/rice-extra-e727f82770b7.jpg",
+      "annotated": null,
+      "capturedAt": null,
+      "capturedDate": "2025-08-16",
+      "analyzedAt": "2026-11-11T06:12:18.872886+00:00",
+      "sourceName": "flowering_hollandrice_2025_2025-08-16.jpg",
+      "sourceGroup": "hollandrice",
+      "sourceUrl": "https://phenocam.nau.edu/data/archive/hollandrice/2025/08/hollandrice_2025_08_16_120506.jpg",
+      "sourceNote": "기존 논 AI 테스트 데이터셋 · 외부 관측지 사진 · 실발전소 자료 아님",
+      "datasetLabel": "FLOWERING",
+      "analysis": {
+        "analysis_type": "rice_stage",
+        "model_id": "dongyang/rice-stage-single-robust-v2-yolo11n-cls",
+        "model_revision": "fe6dc6ca1e2af01919ae35a197d59d0886d80e95dc12ad735c531330a343881e",
+        "threshold": 0.65,
+        "rice_stage": {
+          "stage": "FLOWERING",
+          "stage_name": "출수·개화",
+          "confidence": 0.9923645257949829,
+          "probabilities": {
+            "FLOWERING": 0.9923645257949829,
+            "HARVEST": 0.002463126089423895,
+            "SOWING": 0.00016963249072432518,
+            "VEGETATIVE": 0.005002787336707115
+          },
+          "needs_review": false
+        },
+        "detections": [],
+        "counts": {},
+        "width": 1296,
+        "height": 912,
+        "inference_ms": 15
+      }
+    },
+    {
+      "id": "rice-extra-f19cc86d64f3",
+      "title": "논 관찰 2025-08-21",
+      "kind": "rice_stage",
+      "image": "rice/rice-extra-f19cc86d64f3.jpg",
+      "annotated": null,
+      "capturedAt": null,
+      "capturedDate": "2025-08-21",
+      "analyzedAt": "2026-11-11T06:12:18.872886+00:00",
+      "sourceName": "flowering_hollandrice_2025_2025-08-21.jpg",
+      "sourceGroup": "hollandrice",
+      "sourceUrl": "https://phenocam.nau.edu/data/archive/hollandrice/2025/08/hollandrice_2025_08_21_120505.jpg",
+      "sourceNote": "기존 논 AI 테스트 데이터셋 · 외부 관측지 사진 · 실발전소 자료 아님",
+      "datasetLabel": "FLOWERING",
+      "analysis": {
+        "analysis_type": "rice_stage",
+        "model_id": "dongyang/rice-stage-single-robust-v2-yolo11n-cls",
+        "model_revision": "fe6dc6ca1e2af01919ae35a197d59d0886d80e95dc12ad735c531330a343881e",
+        "threshold": 0.65,
+        "rice_stage": {
+          "stage": "FLOWERING",
+          "stage_name": "출수·개화",
+          "confidence": 0.7149712443351746,
+          "probabilities": {
+            "FLOWERING": 0.7149712443351746,
+            "HARVEST": 0.2811475992202759,
+            "SOWING": 0.00018648621335159987,
+            "VEGETATIVE": 0.0036946956533938646
+          },
+          "needs_review": false
+        },
+        "detections": [],
+        "counts": {},
+        "width": 1296,
+        "height": 912,
+        "inference_ms": 16
+      }
+    },
+    {
+      "id": "rice-extra-4f92413f8f74",
+      "title": "논 관찰 2025-08-25",
+      "kind": "rice_stage",
+      "image": "rice/rice-extra-4f92413f8f74.jpg",
+      "annotated": null,
+      "capturedAt": null,
+      "capturedDate": "2025-08-25",
+      "analyzedAt": "2026-11-11T06:12:18.872886+00:00",
+      "sourceName": "flowering_hollandrice_2025_2025-08-25.jpg",
+      "sourceGroup": "hollandrice",
+      "sourceUrl": "https://phenocam.nau.edu/data/archive/hollandrice/2025/08/hollandrice_2025_08_25_120505.jpg",
+      "sourceNote": "기존 논 AI 테스트 데이터셋 · 외부 관측지 사진 · 실발전소 자료 아님",
+      "datasetLabel": "FLOWERING",
+      "analysis": {
+        "analysis_type": "rice_stage",
+        "model_id": "dongyang/rice-stage-single-robust-v2-yolo11n-cls",
+        "model_revision": "fe6dc6ca1e2af01919ae35a197d59d0886d80e95dc12ad735c531330a343881e",
+        "threshold": 0.65,
+        "rice_stage": {
+          "stage": "FLOWERING",
+          "stage_name": "출수·개화",
+          "confidence": 0.9790785312652588,
+          "probabilities": {
+            "FLOWERING": 0.9790785312652588,
+            "HARVEST": 0.019744718447327614,
+            "SOWING": 3.79922021238599e-05,
+            "VEGETATIVE": 0.001138669322244823
+          },
+          "needs_review": false
+        },
+        "detections": [],
+        "counts": {},
+        "width": 1296,
+        "height": 912,
+        "inference_ms": 15
+      }
+    },
+    {
+      "id": "rice-extra-20040c9f800a",
+      "title": "논 관찰 2025-08-28",
+      "kind": "rice_stage",
+      "image": "rice/rice-extra-20040c9f800a.jpg",
+      "annotated": null,
+      "capturedAt": null,
+      "capturedDate": "2025-08-28",
+      "analyzedAt": "2026-11-11T06:12:18.872886+00:00",
+      "sourceName": "harvest_hollandrice_2025_2025-08-28.jpg",
+      "sourceGroup": "hollandrice",
+      "sourceUrl": "https://phenocam.nau.edu/data/archive/hollandrice/2025/08/hollandrice_2025_08_28_120650.jpg",
+      "sourceNote": "기존 논 AI 테스트 데이터셋 · 외부 관측지 사진 · 실발전소 자료 아님",
+      "datasetLabel": "HARVEST",
+      "analysis": {
+        "analysis_type": "rice_stage",
+        "model_id": "dongyang/rice-stage-single-robust-v2-yolo11n-cls",
+        "model_revision": "fe6dc6ca1e2af01919ae35a197d59d0886d80e95dc12ad735c531330a343881e",
+        "threshold": 0.65,
+        "rice_stage": {
+          "stage": "FLOWERING",
+          "stage_name": "출수·개화",
+          "confidence": 0.7519985437393188,
+          "probabilities": {
+            "FLOWERING": 0.7519985437393188,
+            "HARVEST": 0.23893103003501892,
+            "SOWING": 0.0006991981063038111,
+            "VEGETATIVE": 0.008371136151254177
+          },
+          "needs_review": false
+        },
+        "detections": [],
+        "counts": {},
+        "width": 1296,
+        "height": 912,
+        "inference_ms": 16
+      }
+    },
+    {
+      "id": "rice-extra-5a58ee0d426c",
+      "title": "논 관찰 2025-09-03",
+      "kind": "rice_stage",
+      "image": "rice/rice-extra-5a58ee0d426c.jpg",
+      "annotated": null,
+      "capturedAt": null,
+      "capturedDate": "2025-09-03",
+      "analyzedAt": "2026-11-11T06:12:18.872886+00:00",
+      "sourceName": "harvest_hollandrice_2025_2025-09-03.jpg",
+      "sourceGroup": "hollandrice",
+      "sourceUrl": "https://phenocam.nau.edu/data/archive/hollandrice/2025/09/hollandrice_2025_09_03_120506.jpg",
+      "sourceNote": "기존 논 AI 테스트 데이터셋 · 외부 관측지 사진 · 실발전소 자료 아님",
+      "datasetLabel": "HARVEST",
+      "analysis": {
+        "analysis_type": "rice_stage",
+        "model_id": "dongyang/rice-stage-single-robust-v2-yolo11n-cls",
+        "model_revision": "fe6dc6ca1e2af01919ae35a197d59d0886d80e95dc12ad735c531330a343881e",
+        "threshold": 0.65,
+        "rice_stage": {
+          "stage": "FLOWERING",
+          "stage_name": "출수·개화",
+          "confidence": 0.6663144826889038,
+          "probabilities": {
+            "FLOWERING": 0.6663144826889038,
+            "HARVEST": 0.3316013514995575,
+            "SOWING": 0.0009149368270300329,
+            "VEGETATIVE": 0.0011692336993291974
+          },
+          "needs_review": false
+        },
+        "detections": [],
+        "counts": {},
+        "width": 1296,
+        "height": 912,
+        "inference_ms": 16
+      }
+    },
+    {
+      "id": "rice-extra-9655f08a087c",
+      "title": "논 관찰 2025-09-10",
+      "kind": "rice_stage",
+      "image": "rice/rice-extra-9655f08a087c.jpg",
+      "annotated": null,
+      "capturedAt": null,
+      "capturedDate": "2025-09-10",
+      "analyzedAt": "2026-11-11T06:12:18.872886+00:00",
+      "sourceName": "harvest_hollandrice_2025_2025-09-10.jpg",
+      "sourceGroup": "hollandrice",
+      "sourceUrl": "https://phenocam.nau.edu/data/archive/hollandrice/2025/09/hollandrice_2025_09_10_120506.jpg",
+      "sourceNote": "기존 논 AI 테스트 데이터셋 · 외부 관측지 사진 · 실발전소 자료 아님",
+      "datasetLabel": "HARVEST",
+      "analysis": {
+        "analysis_type": "rice_stage",
+        "model_id": "dongyang/rice-stage-single-robust-v2-yolo11n-cls",
+        "model_revision": "fe6dc6ca1e2af01919ae35a197d59d0886d80e95dc12ad735c531330a343881e",
+        "threshold": 0.65,
+        "rice_stage": {
+          "stage": "HARVEST",
+          "stage_name": "수확기",
+          "confidence": 0.9769083261489868,
+          "probabilities": {
+            "FLOWERING": 0.02211064100265503,
+            "HARVEST": 0.9769083261489868,
+            "SOWING": 0.0007736954721622169,
+            "VEGETATIVE": 0.00020734606368932873
+          },
+          "needs_review": false
+        },
+        "detections": [],
+        "counts": {},
+        "width": 1296,
+        "height": 912,
+        "inference_ms": 20
+      },
+      "anomalyCandidate": {
+        "source": "demo",
+        "reason": "시연 시나리오: 수확 단계의 작업 진행 여부를 확인하는 요청입니다. 실제 이상 탐지 결과가 아닙니다.",
+        "createdAt": "2026-11-11T06:12:18.872886+00:00"
+      }
+    },
+    {
+      "id": "rice-extra-5fa78b9af677",
+      "title": "논 관찰 2025-09-18",
+      "kind": "rice_stage",
+      "image": "rice/rice-extra-5fa78b9af677.jpg",
+      "annotated": null,
+      "capturedAt": null,
+      "capturedDate": "2025-09-18",
+      "analyzedAt": "2026-11-11T06:12:18.872886+00:00",
+      "sourceName": "harvest_hollandrice_2025_2025-09-18.jpg",
+      "sourceGroup": "hollandrice",
+      "sourceUrl": "https://phenocam.nau.edu/data/archive/hollandrice/2025/09/hollandrice_2025_09_18_120505.jpg",
+      "sourceNote": "기존 논 AI 테스트 데이터셋 · 외부 관측지 사진 · 실발전소 자료 아님",
+      "datasetLabel": "HARVEST",
+      "analysis": {
+        "analysis_type": "rice_stage",
+        "model_id": "dongyang/rice-stage-single-robust-v2-yolo11n-cls",
+        "model_revision": "fe6dc6ca1e2af01919ae35a197d59d0886d80e95dc12ad735c531330a343881e",
+        "threshold": 0.65,
+        "rice_stage": {
+          "stage": "HARVEST",
+          "stage_name": "수확기",
+          "confidence": 0.9994565844535828,
+          "probabilities": {
+            "FLOWERING": 0.00044145173160359263,
+            "HARVEST": 0.9994565844535828,
+            "SOWING": 3.94240632886067e-05,
+            "VEGETATIVE": 6.252995081013069e-05
+          },
+          "needs_review": false
+        },
+        "detections": [],
+        "counts": {},
+        "width": 1296,
+        "height": 912,
+        "inference_ms": 17
+      }
+    },
+    {
+      "id": "rice-extra-135e66ead4fc",
+      "title": "논 관찰 2025-09-25",
+      "kind": "rice_stage",
+      "image": "rice/rice-extra-135e66ead4fc.jpg",
+      "annotated": null,
+      "capturedAt": null,
+      "capturedDate": "2025-09-25",
+      "analyzedAt": "2026-11-11T06:12:18.872886+00:00",
+      "sourceName": "harvest_hollandrice_2025_2025-09-25.jpg",
+      "sourceGroup": "hollandrice",
+      "sourceUrl": "https://phenocam.nau.edu/data/archive/hollandrice/2025/09/hollandrice_2025_09_25_120505.jpg",
+      "sourceNote": "기존 논 AI 테스트 데이터셋 · 외부 관측지 사진 · 실발전소 자료 아님",
+      "datasetLabel": "HARVEST",
+      "analysis": {
+        "analysis_type": "rice_stage",
+        "model_id": "dongyang/rice-stage-single-robust-v2-yolo11n-cls",
+        "model_revision": "fe6dc6ca1e2af01919ae35a197d59d0886d80e95dc12ad735c531330a343881e",
+        "threshold": 0.65,
+        "rice_stage": {
+          "stage": "HARVEST",
+          "stage_name": "수확기",
+          "confidence": 0.9998307228088379,
+          "probabilities": {
+            "FLOWERING": 6.45584732410498e-05,
+            "HARVEST": 0.9998307228088379,
+            "SOWING": 7.41399999242276e-05,
+            "VEGETATIVE": 3.0512572266161442e-05
+          },
+          "needs_review": false
+        },
+        "detections": [],
+        "counts": {},
+        "width": 1296,
+        "height": 912,
+        "inference_ms": 17
+      }
+    },
+    {
+      "id": "rice-extra-3a9d74726d7e",
+      "title": "논 관찰 2025-10-01",
+      "kind": "rice_stage",
+      "image": "rice/rice-extra-3a9d74726d7e.jpg",
+      "annotated": null,
+      "capturedAt": null,
+      "capturedDate": "2025-10-01",
+      "analyzedAt": "2026-11-11T06:12:18.872886+00:00",
+      "sourceName": "harvest_hollandrice_2025_2025-10-01.jpg",
+      "sourceGroup": "hollandrice",
+      "sourceUrl": "https://phenocam.nau.edu/data/archive/hollandrice/2025/10/hollandrice_2025_10_01_120505.jpg",
+      "sourceNote": "기존 논 AI 테스트 데이터셋 · 외부 관측지 사진 · 실발전소 자료 아님",
+      "datasetLabel": "HARVEST",
+      "analysis": {
+        "analysis_type": "rice_stage",
+        "model_id": "dongyang/rice-stage-single-robust-v2-yolo11n-cls",
+        "model_revision": "fe6dc6ca1e2af01919ae35a197d59d0886d80e95dc12ad735c531330a343881e",
+        "threshold": 0.65,
+        "rice_stage": {
+          "stage": "HARVEST",
+          "stage_name": "수확기",
+          "confidence": 0.9998947381973267,
+          "probabilities": {
+            "FLOWERING": 3.0350749511853792e-05,
+            "HARVEST": 0.9998947381973267,
+            "SOWING": 6.390427006408572e-05,
+            "VEGETATIVE": 1.0981185369018931e-05
+          },
+          "needs_review": false
+        },
+        "detections": [],
+        "counts": {},
+        "width": 1296,
+        "height": 912,
+        "inference_ms": 18
+      }
+    }
+  ]
+}

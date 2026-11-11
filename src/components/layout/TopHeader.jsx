@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react'
-import { Menu, Clock, Sun, Moon, LogOut, LogIn, Radio } from 'lucide-react'
+import { Menu, Clock, LogOut, LogIn, Radio } from 'lucide-react'
 import { useApp } from '../../context/useApp'
 import { nowStamp } from '../../lib/format'
 
 export default function TopHeader({ onToggleNav, onOpenAuth }) {
   const {
-    plant, plantId, plantList, selectPlant, canSwitchPlant, user, logout, theme, toggleTheme, connected, isLive, liveState,
+    plant, plantId, plantList, selectPlant, canSwitchPlant, user, logout, connected, isLive, liveState,
   } = useApp()
   // 현재 선택 발전소가 목록에 없으면(데모↔백엔드 전환 직후) 앞에 붙여 셀렉터 값 불일치 방지.
   const options = user?.source === 'api' ? plantList : plantList.some((p) => p.id === plantId) ? plantList : [plant, ...plantList]
@@ -70,10 +70,7 @@ export default function TopHeader({ onToggleNav, onOpenAuth }) {
           </button>
         )}
 
-        <button className="icon-btn" onClick={toggleTheme} title="다크/라이트 전환">
-          {theme === 'dark' ? <Moon /> : <Sun />}
-          <span className="hide-sm">테마</span>
-        </button>
+
       </div>
     </header>
   )

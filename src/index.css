@@ -4,13 +4,14 @@
    ========================================================================== */
 
 :root {
+  color-scheme: light;
   /* Surfaces */
-  --bg-app: #f2f5f2;
+  --bg-app: #f6f8fa;
   --bg-card: #ffffff;
-  --bg-subtle: #eaf1ec;
+  --bg-subtle: #f5f8fa;
   --bg-elevated: #ffffff;
-  --border: #dbe4dd;
-  --border-strong: #c2d0c6;
+  --border: #e0e6eb;
+  --border-strong: #c6d2da;
 
   /* Brand */
   --sage: #3d5a47;
@@ -29,9 +30,9 @@
   --red: #dc2626;
 
   /* Text */
-  --text: #16241a;
-  --text-2: #43584a;
-  --text-3: #6b7d70;
+  --text: #1d2b36;
+  --text-2: #465d6a;
+  --text-3: #687d89;
   --on-accent: #ffffff;
 
   /* Scale */
@@ -50,36 +51,7 @@
     'Segoe UI', 'Malgun Gothic', sans-serif;
 }
 
-[data-theme='dark'] {
-  --bg-app: #0e1511;
-  --bg-card: #18231c;
-  --bg-subtle: #213327;
-  --bg-elevated: #1d2b22;
-  --border: #2c3a30;
-  --border-strong: #3a4c40;
 
-  --sage: #6ee7b7;
-  --sage-strong: #34d399;
-  --sage-soft: #1f3529;
-  --terracotta: #ff8a70;
-  --terracotta-soft: #3a2019;
-
-  --blue: #38bdf8;
-  --teal: #2dd4bf;
-  --lime: #a3e635;
-  --amber: #fbbf24;
-  --violet: #a78bfa;
-  --emerald: #34d399;
-  --red: #f87171;
-
-  --text: #f1f5f2;
-  --text-2: #cdd8d0;
-  --text-3: #97a89d;
-
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
-  --shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
-  --shadow-lg: 0 22px 50px rgba(0, 0, 0, 0.6);
-}
 
 * { box-sizing: border-box; }
 

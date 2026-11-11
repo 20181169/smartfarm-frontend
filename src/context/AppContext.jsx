@@ -57,13 +57,8 @@ function toDisplayPlant(bp) {
 export function AppProvider({ children }) {
   const [plantId, setPlantId] = useState(DEFAULT_PLANT_ID)
   const [user, setUser] = useState(null)
-  const [theme, setTheme] = useState(() => {
-    try {
-      return localStorage.getItem('dongyang_theme') || 'light'
-    } catch {
-      return 'light'
-    }
-  })
+  // The redesigned application uses one white theme, including restored sessions.
+  const theme = 'light'
   const [meteo, setMeteo] = useState(null) // Open-Meteo 실시간 날씨(폴백용)
 
   // 백엔드 연동 상태
@@ -395,10 +390,6 @@ export function AppProvider({ children }) {
     [plantList]
   )
 
-  const toggleTheme = useCallback(() => {
-    setTheme((t) => (t === 'dark' ? 'light' : 'dark'))
-  }, [])
-
   const login = useCallback((u) => setUser(u), [])
 
   const apiSignIn = useCallback(
@@ -468,7 +459,6 @@ export function AppProvider({ children }) {
     liveState, // 백엔드 발전소 계측 조회 상태: loading | ok | empty(데이터 없음) | error
     hasPermission,
     selectPlant,
-    toggleTheme,
     login,
     apiSignIn,
     logout,
