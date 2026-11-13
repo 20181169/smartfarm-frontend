@@ -1,3 +1,4 @@
+import { applyGuideSchedule, defaultGuideYear } from './riceGuideSchedule.js'
 // Local workflow adapter. Nothing in this module calls the backend.
 export const PHASES = [
   { code: 'SOWING', name: '파종·모내기', hint: '파종·이앙 일정과 필요한 장비·인력을 정리하세요.', offset: 0 },
@@ -54,13 +55,9 @@ export function commitWorkspace(storage, key, update) {
   return next
 }
 export function makePlan() {
-  const start = today()
-  return { id: uid(), title: '벼 재배 계획', crop: '벼', plot: '', start,
-    stages: PHASES.map((p) => {
-      const date = new Date(`${start}T12:00:00`)
-      date.setDate(date.getDate() + p.offset)
-      return { code: p.code, date: date.toLocaleDateString('en-CA'), equipment: '', people: '', guide: p.hint }
-    }) }
+  return applyGuideSchedule({ id: uid(), title: '벼 재배 계획', crop: '벼', plot: '',
+    stages: PHASES.map(p => ({ code: p.code, equipment: '', people: '', guide: p.hint })),
+  }, defaultGuideYear())
 }
 export function recordError(record, plan, photos) {
   if (!plan) return '먼저 영농계획을 저장해 주세요.'

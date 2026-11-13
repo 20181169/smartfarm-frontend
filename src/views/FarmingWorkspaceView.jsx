@@ -7,6 +7,10 @@ import {
   makePlan, recordError, reportDraft, transitionReport, fetchLocalPhotos, localPhotoUrl, GALLERY_CATEGORIES, photoCategory, matchesPhotoCategory, photoInspectionDraft,
 } from '../lib/localFarming'
 import './FarmingWorkspaceView.css'
+import FarmingGuide from './FarmingGuide'
+import GuideCalendar from './GuideCalendar'
+import { applyGuideSchedule, defaultGuideYear, scheduleDates, scheduleChanges, guidePlanError } from '../lib/riceGuideSchedule'
+import { withDetailedGuide } from '../lib/localFarmingGuide'
 
 const TABS = [
   ['plan', '영농계획', Sprout], ['gallery', '사진 갤러리', Images],
@@ -132,14 +136,15 @@ function Workspace({ scope, plantName }) {
       {photoError && <div className="fw-error" role="alert">{photoError}<button className={btn()} onClick={() => setReload((n) => n + 1)}>사진 다시 불러오기</button></div>}
 
       {tab === 'plan' && <section className="fw-panel">
-        <div className="fw-panel-head"><div><h2>작물별 전체 영농계획</h2><p>작물과 시작일을 정하고, 파종·모내기부터 수확까지의 일정을 조정하세요.</p></div>
+        <div className="fw-panel-head"><div><h2>작물별 전체 영농계획</h2><p>월별 재배 가이드를 확인하고, 가이드 일정에 따라 영농계획을 작성하세요.</p></div>
           {data.plan && role === 'operator' && <button className={btn()} onClick={() => setEditPlan(!editPlan)}>{editPlan ? '수정 닫기' : '계획 수정'}</button>}</div>
         {role === 'operator' && (!data.plan || editPlan) ? <PlanEditor key={data.plan?.id || 'new'} plan={data.plan} onSave={(plan) => {
           if (save((s) => ({ ...s, plan }), '계획을 이 브라우저에 저장했습니다.')) setEditPlan(false)
         }} /> : data.plan ? <>
+          {data.plan.guideSchedule && <><GuideCalendar year={data.plan.guideSchedule.year} /><p className="fw-guide-note">{scheduleChanges(data.plan).length ? `일정 조정 사유: ${data.plan.scheduleReason || '미입력'}` : '가이드 일정대로 작성된 계획입니다.'}</p></>}
           <div className="fw-plan-intro"><div><span className="fw-tag">{data.plan.crop}</span><h3>{data.plan.title}</h3><p>{data.plan.plot || '재배구역 미입력'} · 재배 시작 {data.plan.start}</p></div>
             <button className={btn(true)} onClick={() => navigate({ tab: 'gallery', category: 'all' })}>사진 갤러리로 <ArrowRight size={16} /></button></div>
-          <div className="fw-timeline">{data.plan.stages.map((stage, i) => <div key={stage.code} className="fw-stage"><span className="fw-stage-number">0{i + 1}</span><div><h3>{phaseName(stage.code)}</h3><p>{stage.date} · 장비 {stage.equipment || '미입력'} · 인력 {stage.people || '미입력'}</p><p>{stage.guide}</p></div><div className="fw-stage-actions"><span className="fw-tag">기록 {data.records.filter((r) => r.phase === stage.code).length}건 · 사진 {photos.filter((p) => photoCategory(p) === stage.code).length}장</span><button className={btn()} aria-label={`${phaseName(stage.code)} 해당 단계 사진 보기`} onClick={() => openStageGallery(stage.code)}>해당 단계 사진 보기 <ArrowRight size={15} /></button></div></div>)}</div>
+          <p className="fw-guide-note">세부 작업은 담당자가 편집하는 벼 이앙재배 예시 가이드입니다. AI 자동 생성 가이드가 아닙니다. 단계별 상세 보기를 열어 준비 사항과 수행·촬영 안내를 확인하세요.</p><div className="fw-timeline">{data.plan.stages.map((stage, i) => <div key={stage.code} className="fw-stage"><span className="fw-stage-number">0{i + 1}</span><div><h3>{phaseName(stage.code)}</h3><p>{stage.date} · 장비 {stage.equipment || '미입력'} · 인력 {stage.people || '미입력'}</p><p className="fw-prewrap">{stage.guide}</p><FarmingGuide stage={stage} /></div><div className="fw-stage-actions"><span className="fw-tag">기록 {data.records.filter((r) => r.phase === stage.code).length}건 · 사진 {photos.filter((p) => photoCategory(p) === stage.code).length}장</span><button className={btn()} aria-label={`${phaseName(stage.code)} 해당 단계 사진 보기`} onClick={() => openStageGallery(stage.code)}>해당 단계 사진 보기 <ArrowRight size={15} /></button></div></div>)}</div>
         </> : <Empty>발전소 담당자 화면에서 먼저 영농계획을 작성해 주세요.</Empty>}
       </section>}
 
@@ -179,20 +184,36 @@ function Workspace({ scope, plantName }) {
 }
 
 function PlanEditor({ plan, onSave }) {
-  const [form, setForm] = useState(() => plan ? structuredClone(plan) : makePlan())
+  const [form, setForm] = useState(() => plan ? withDetailedGuide(plan) : makePlan())
   const [problem, setProblem] = useState('')
+  const [scheduleEditable, setScheduleEditable] = useState(false)
+  const [year, setYear] = useState(() => form.guideSchedule?.year || Number(form.start?.slice(0, 4)) || defaultGuideYear())
+  const [originalDates] = useState(() => scheduleDates(form))
+  const baseline = form.guideSchedule?.dates || originalDates
+  const changedDates = scheduleChanges(form, baseline).length
   const changeStage = (i, key, value) => setForm((f) => ({ ...f, stages: f.stages.map((s, n) => n === i ? { ...s, [key]: value } : s) }))
   return <form className="fw-form" onSubmit={(e) => {
     e.preventDefault()
-    if (!form.title.trim()) { setProblem('계획명을 입력해 주세요.'); return }
-    if (form.stages.some((s, i) => s.date < form.start || (i && s.date < form.stages[i - 1].date))) { setProblem('단계별 날짜는 재배 시작일 이후 순서대로 입력해 주세요.'); return }
+    if (form.guideSchedule && form.guideSchedule.year !== year) { setProblem('선택한 재배 연도의 가이드 일정을 먼저 적용해 주세요.'); return }
+    const issue = guidePlanError(form, baseline)
+    if (issue) { setProblem(issue); return }
     setProblem(''); onSave(form)
   }}>
-    <div className="fw-form-row"><Field label="계획명"><input required value={form.title} maxLength={120} onChange={(e) => setForm({ ...form, title: e.target.value })} /></Field><Field label="작물"><input value="벼" readOnly /></Field><Field label="재배 시작일"><input required type="date" value={form.start} onChange={(e) => setForm({ ...form, start: e.target.value })} /></Field></div>
+    <GuideCalendar year={year} />
+    <div className="fw-schedule-controls">
+      <Field label="재배 연도"><select value={year} onChange={e => setYear(Number(e.target.value))}>{Array.from(new Set([year, ...Array.from({ length: 5 }, (_, i) => defaultGuideYear() - 2 + i)])).sort((a, b) => a - b).map(y => <option key={y} value={y}>{y}년</option>)}</select></Field>
+      <button type="button" className={btn()} onClick={() => { setForm(applyGuideSchedule(form, year)); setScheduleEditable(false); setProblem('') }}>{year}년 가이드 일정 적용</button>
+      <button type="button" className={btn()} aria-expanded={scheduleEditable} onClick={() => setScheduleEditable(!scheduleEditable)}>{scheduleEditable ? '일정 편집 닫기' : '현장 사정으로 일정 조정'}</button>
+    </div>
+    <p className="fw-muted">일정 적용 시 재배 시작일·단계별 날짜·12개 작업 예정일이 선택 연도로 채워집니다. 작성한 작업 내용·장비·인력은 유지됩니다.</p>
+    <div className="fw-guide-note">{form.guideSchedule ? `${form.guideSchedule.year}년 가이드 일정 ${changedDates ? `중 ${changedDates}개 날짜를 조정했습니다.` : '그대로 적용 중입니다.'}` : '기존 계획의 일정은 유지 중입니다. 월별 가이드로 전환하려면 위의 일정 적용을 눌러 주세요.'}{form.guideSchedule?.year !== year && ' 위 연도의 미리보기는 아직 계획에 적용되지 않았습니다.'}</div>
+    {(scheduleEditable || changedDates > 0) && <Field label="일정 조정 사유"><textarea rows={2} maxLength={1000} value={form.scheduleReason || ''} onChange={e => setForm({ ...form, scheduleReason: e.target.value })} placeholder="예: 현장 품종의 적기 및 장비 배차 일정에 맞춰 모내기 날짜 조정" /></Field>}
+    <div className="fw-form-row"><Field label="계획명"><input required value={form.title} maxLength={120} onChange={(e) => setForm({ ...form, title: e.target.value })} /></Field><Field label="작물"><input value="벼" readOnly /></Field><Field label="재배 시작일"><input required type="date" readOnly={!scheduleEditable} value={form.start} onChange={(e) => setForm({ ...form, start: e.target.value })} /></Field></div>
     <Field label="재배구역"><input value={form.plot} maxLength={120} onChange={(e) => setForm({ ...form, plot: e.target.value })} placeholder="예: 화성 1구역" /></Field>
-    <div className="fw-subhead"><h3>생육 단계별 일정과 작업 가이드</h3><span className="fw-muted">초기 일정은 예시입니다. 현장 일정에 맞게 수정하세요.</span></div>
-    {form.stages.map((stage, i) => <div className="fw-stage-editor" key={stage.code}><h3><span className="fw-stage-number">0{i + 1}</span>{phaseName(stage.code)}</h3><div className="fw-form-row"><Field label={`${phaseName(stage.code)} 예정일`}><input type="date" required value={stage.date} onChange={(e) => changeStage(i, 'date', e.target.value)} /></Field><Field label={`${phaseName(stage.code)} 장비`}><input value={stage.equipment} maxLength={120} onChange={(e) => changeStage(i, 'equipment', e.target.value)} placeholder="장비명" /></Field><Field label={`${phaseName(stage.code)} 인력`}><input value={stage.people} maxLength={80} onChange={(e) => changeStage(i, 'people', e.target.value)} placeholder="예: 2명" /></Field></div><Field label={`${phaseName(stage.code)} 작업 가이드`}><textarea rows={2} maxLength={1500} value={stage.guide} onChange={(e) => changeStage(i, 'guide', e.target.value)} /></Field></div>)}
-    {problem && <p className="fw-error" role="alert">{problem}</p>}<div className="fw-actions"><button className={btn(true)}>영농계획 저장</button></div>
+    <div className="fw-subhead"><h3>생육 단계별 일정과 세부 작업 가이드</h3><span className="fw-tag">4단계 · 12개 세부 작업 예시</span></div>
+    <div className="fw-guide-note">벼 이앙재배의 작업 계획 예시입니다. 사진은 4단계로 분류하고, 가이드는 단계 안의 세부 작업으로 나눕니다. AI 자동 생성은 아직 연결되지 않았습니다. 가이드의 예정일을 기본으로 따르고, 필요한 경우에만 일정 조정 버튼을 눌러 날짜와 사유를 입력하세요. 장비·인력과 작업 내용은 현장에 맞게 보완할 수 있습니다.</div>
+    {form.stages.map((stage, i) => <div className="fw-stage-editor" key={stage.code}><h3><span className="fw-stage-number">0{i + 1}</span>{phaseName(stage.code)}</h3><div className="fw-form-row"><Field label={`${phaseName(stage.code)} 예정일`}><input type="date" required readOnly={!scheduleEditable} value={stage.date} onChange={(e) => changeStage(i, 'date', e.target.value)} /></Field><Field label={`${phaseName(stage.code)} 장비`}><input value={stage.equipment} maxLength={120} onChange={(e) => changeStage(i, 'equipment', e.target.value)} placeholder="장비명" /></Field><Field label={`${phaseName(stage.code)} 인력`}><input value={stage.people} maxLength={80} onChange={(e) => changeStage(i, 'people', e.target.value)} placeholder="예: 2명" /></Field></div><Field label={`${phaseName(stage.code)} 단계 메모`}><textarea rows={2} maxLength={1500} value={stage.guide} onChange={(e) => changeStage(i, 'guide', e.target.value)} /></Field><FarmingGuide stage={stage} scheduleEditable={scheduleEditable} onChange={(tasks) => changeStage(i, 'tasks', tasks)} /></div>)}
+    {problem && <p className="fw-error" role="alert">{problem}</p>}<div className="fw-actions"><button className={btn(true)}>{form.guideSchedule && !changedDates ? '가이드 일정으로 영농계획 저장' : '영농계획 저장'}</button></div>
   </form>
 }
 
