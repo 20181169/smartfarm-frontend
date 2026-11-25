@@ -11,6 +11,7 @@ import FarmingGuide from './FarmingGuide'
 import GuideCalendar from './GuideCalendar'
 import { applyGuideSchedule, defaultGuideYear, scheduleDates, scheduleChanges, guidePlanError } from '../lib/riceGuideSchedule'
 import { withDetailedGuide } from '../lib/localFarmingGuide'
+import FarmingWorkspaceLive from './farming-workspace/FarmingWorkspaceLive'
 
 const TABS = [
   ['plan', '영농계획', Sprout], ['gallery', '사진 갤러리', Images],
@@ -38,8 +39,15 @@ function Empty({ children, action }) {
 
 export default function FarmingWorkspaceView() {
   const { user, plant, plantId } = useApp()
+  const [params, setParams] = useSearchParams()
+  const actual = user?.source === 'api'
+  const live = actual && params.get('mode') !== 'sample'
   const scope = workspaceKey(user?.userId || user?.email, plantId)
-  return <Workspace key={scope} scope={scope} plantName={plant?.name || '선택 발전소'} />
+  return <><div className="fw-mode-bar" role="group" aria-label="영농관리 자료 선택">
+    {actual && <button className={btn(live)} aria-pressed={live} onClick={() => setParams({ tab: 'plan' })}>운영 자료</button>}
+    <button className={btn(!live)} aria-pressed={!live} onClick={() => setParams({ mode: 'sample', tab: 'plan' })}>샘플 시연</button>
+    <span>{live ? '로그인한 계정으로 서버 자료를 조회·저장합니다.' : '샘플 자료와 시연 기록은 이 브라우저에만 보관합니다.'}</span>
+  </div>{live ? <FarmingWorkspaceLive key={`${user.userId}:${plantId}`} /> : <Workspace key={scope} scope={scope} plantName={plant?.name || '선택 발전소'} />}</>
 }
 
 function Workspace({ scope, plantName }) {

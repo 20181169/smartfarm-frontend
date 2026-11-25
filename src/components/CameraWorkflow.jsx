@@ -32,7 +32,7 @@ export function cameraSettingsPath(plantId, cameraId, planId) {
   const path = workflowPath('/camera-settings', { plantId, planId })
   return `${path}${path.includes('?') ? '&' : '?'}camera=${encodeURIComponent(cameraId)}`
 }
-export function RuntimeStatus({ cameraId, plantId, planId }) {
+export function RuntimeStatus({ cameraId, plantId, planId, onOpen }) {
   const { user, hasPermission } = useApp()
   const readable = hasPermission('camera_runtime:read')
   const runtime = useWorkflowQuery(async signal => {
@@ -42,6 +42,6 @@ export function RuntimeStatus({ cameraId, plantId, planId }) {
   if (!readable || !cameraId) return null
   return <div className="camera-runtime-status"><QueryStatus state={runtime} />{!runtime.loading && !runtime.error && <>
     <span>{runtime.data ? `접속 설정됨 · ${runtime.data.enabled ? '설정 사용' : '설정 비활성'}` : '접속 미설정 · 자동 촬영 전에 설정이 필요합니다.'}</span>
-    <Link to={cameraSettingsPath(plantId, cameraId, planId)}>접속 설정 보기</Link>
+    {onOpen ? <button className="icon-btn" type="button" onClick={() => onOpen(cameraId)}>접속 설정 보기</button> : <Link to={cameraSettingsPath(plantId, cameraId, planId)}>접속 설정 보기</Link>}
   </>}</div>
 }

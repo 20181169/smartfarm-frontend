@@ -3,15 +3,15 @@ import { workflowError, workflowStates, workflowTime } from '../lib/workflow'
 import './Workflow.css'
 
 // Callers provide stable query keys; aborted or older requests never replace a new selection.
-export function useWorkflowQuery(load, keys) {
+export function useWorkflowQuery(load, keys, keepPrevious = false) {
   const [state, setState] = useState({ loading: true })
   const [version, setVersion] = useState(0)
   useEffect(() => {
     const controller = new AbortController()
-    setState({ loading: true })
+    setState(previous => keepPrevious ? { data: previous.data, loading: true } : { loading: true })
     Promise.resolve().then(() => load(controller.signal)).then(data => {
       if (!controller.signal.aborted) setState({ data })
-    }).catch(e => { if (!controller.signal.aborted) setState({ error: workflowError(e) }) })
+    }).catch(e => { if (!controller.signal.aborted) setState(previous => ({ ...(keepPrevious ? { data: previous.data } : {}), error: workflowError(e) })) })
     return () => controller.abort()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [...keys, version])

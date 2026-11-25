@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "test": "node --test tests/*.test.mjs",
     "test:browser": "node tests/workflow.browser.cjs",
-    "test:camera": "node tests/camera.browser.cjs"
+    "test:camera": "node tests/camera.browser.cjs",
+    "test:workspace": "node tests/farming-workspace.browser.cjs"
   },
   "dependencies": {
     "chart.js": "^4.4.7",

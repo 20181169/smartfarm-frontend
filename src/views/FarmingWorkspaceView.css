@@ -26,6 +26,20 @@
 .fw-primary:hover:not(:disabled) { background: #18513f; color: #fff; }
 .fw-button:disabled { opacity: .45; cursor: not-allowed; }
 .farming-workspace :focus-visible { outline: 3px solid #75b7ee; outline-offset: 3px; }
+.fw-mode-bar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; max-width: 1440px; margin: 0 auto 20px; }
+.fw-mode-bar > span { color: #657480; font-size: 12px; }
+.fw-live-fieldset { display: grid; gap: 18px; border: 0; min-width: 0; padding: 0; margin: 0; }
+.fw-live-stack { display: grid; gap: 24px; }
+.fw-live-context { margin-bottom: 22px; }
+.fw-live-plan-list { display: flex; flex-wrap: wrap; gap: 10px; }
+.fw-live-plan-list button { flex-direction: column; align-items: flex-start; }
+.fw-live-plan-list small { display: block; font-weight: 400; }
+.fw-live-photo { width: 100%; max-height: 420px; object-fit: contain; background: #f4f7f8; }
+.fw-live-camera-setup { margin-top: 24px; padding-top: 22px; border-top: 1px solid #dfe6eb; }
+.fw-live-camera-panel { display: grid; gap: 18px; margin-top: 20px; }
+.fw-live-evidence-options { max-height: 230px; overflow-y: auto; border: 1px solid #dfe6eb; border-radius: 8px; padding: 14px; }
+.fw-live-fieldset:disabled { opacity: .7; }
+@media (max-width: 640px) { .fw-mode-bar > span { flex-basis: 100%; } .fw-filters { flex-wrap: wrap; } }
 .fw-form { display: grid; gap: 18px; }
 .fw-form-row { display: flex; gap: 16px; align-items: flex-start; }
 .fw-form-row > * { flex: 1; min-width: 0; }

@@ -25,7 +25,7 @@ function ArchivedPdf({ report }) {
   </>}</div>
 }
 
-export default function ReportApproval({ reportId, report = {} }) {
+export default function ReportApproval({ reportId, report = {}, onOpenPlan }) {
   const { hasPermission } = useApp()
   const [open, setOpen] = useState(false)
   const state = useWorkflowQuery(signal => apiReportApproval(reportId, signal), [reportId])
@@ -34,11 +34,11 @@ export default function ReportApproval({ reportId, report = {} }) {
     <div className="workflow-actions" role="group" aria-label="보고서 승인 상태"><span className={`badge ${latest?.decision === 'approved' ? 'badge-active' : 'badge-neutral'}`}>{state.loading ? '승인 상태 조회 중…' : state.error ? '승인 상태 확인 필요' : latest ? workflowStates[latest.decision] : '승인 대기'}</span>{latest && <small>{latest.reviewer_name} · {workflowTime(latest.signed_at)}</small>}</div>
     {state.error && <QueryStatus state={state} />}
     <button type="button" className={hasPermission('report:approve') ? 'btn-primary' : 'icon-btn'} style={{ marginTop: 12 }} aria-expanded={open} onClick={() => setOpen(v => !v)}>{open ? '검토 창 닫기' : hasPermission('report:approve') ? '보고서 검토·서명' : '승인 · 서명 확인'}</button>
-    {open && <ApprovalPanel report={{ ...report, report_id: reportId }} state={state} />}
+    {open && <ApprovalPanel report={{ ...report, report_id: reportId }} state={state} onOpenPlan={onOpenPlan} />}
   </div>
 }
 
-function ApprovalPanel({ report, state }) {
+function ApprovalPanel({ report, state, onOpenPlan }) {
   const { hasPermission } = useApp()
   const panel = useRef(null)
   useEffect(() => { panel.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }, [])
@@ -61,7 +61,7 @@ function ApprovalPanel({ report, state }) {
       <dl className="workflow-summary"><div><dt>최종 승인 상태</dt><dd>{latest ? workflowStates[latest.decision] : '승인 대기'}</dd></div>
         <div><dt>최종 검토자</dt><dd>{latest ? `${latest.reviewer_name} · ${latest.reviewer_role_name}` : '미등록'}</dd></div><div><dt>서명 시각</dt><dd>{workflowTime(latest?.signed_at)}</dd></div></dl>
       {latest?.comment && <p className="workflow-copy">최종 의견: {latest.comment}</p>}
-      {latest?.decision === 'rejected' && <div className="workflow-warning"><b>반려된 보고서입니다.</b><p>반려 의견에 따라 계획·활동·증빙을 확인해 주세요. 원본 내용이 바뀌었다면 담당자가 새 PDF를 생성해 다시 검토받아야 합니다.</p><Link to={workflowPath('/plan-assessment', { plantId: report.plant_id })}>계획 · 활동 확인</Link></div>}
+      {latest?.decision === 'rejected' && <div className="workflow-warning"><b>반려된 보고서입니다.</b><p>반려 의견에 따라 계획·활동·증빙을 확인해 주세요. 원본 내용이 바뀌었다면 담당자가 새 PDF를 생성해 다시 검토받아야 합니다.</p>{onOpenPlan ? <button className="icon-btn" onClick={onOpenPlan}>계획 · 활동 확인</button> : <Link to={workflowPath('/plan-assessment', { plantId: report.plant_id })}>계획 · 활동 확인</Link>}</div>}
       <p className="text-muted">승인·반려 시 현재 로그인 사용자의 이름과 역할, 서명 시각이 기록됩니다. 보관된 PDF 원문은 변경되지 않으며, 웹 승인 기록은 이 화면에서 확인합니다.</p>
       {hasPermission('report:approve') && <form onSubmit={submit} className="workflow-form"><fieldset disabled={mutation.busy}>
         <label>최종 검토 의견<textarea aria-label="보고서 최종 검토 의견" maxLength={2000} rows={3} value={comment} onChange={e => setComment(e.target.value)} required={decision === 'rejected'} /></label>

@@ -6,7 +6,7 @@ import { workflowPath } from '../lib/workflow'
 import { CameraNav, CameraScope, useCameraScope } from '../components/CameraWorkflow'
 import { MutationStatus, QueryStatus, useWorkflowMutation, useWorkflowQuery } from '../components/WorkflowUI'
 
-function CameraRegistration({ plantId, onCreated }) {
+export function CameraRegistration({ plantId, onCreated }) {
   const [open, setOpen] = useState(false)
   const mutation = useWorkflowMutation()
   return <section className="card camera-panel">
@@ -76,7 +76,7 @@ function RuntimeForm({ device, existing, editable, onSaved }) {
   </form>
 }
 
-function RuntimePanel({ device, canUpdate, planId }) {
+export function RuntimePanel({ device, canUpdate, planId, onPolicies }) {
   const panel = useRef(null)
   const [savedNotice, setSavedNotice] = useState('')
   const state = useWorkflowQuery(async signal => {
@@ -87,7 +87,7 @@ function RuntimePanel({ device, canUpdate, planId }) {
     <h2>{device.name}</h2><p className="text-muted">장비 등록 상태: {DEVICE_STATES[device.status] || device.status}</p>
     {savedNotice && <p role="status">{savedNotice}</p>}<QueryStatus state={state} />
     {!state.loading && !state.error && <RuntimeForm key={JSON.stringify(state.data)} device={device} existing={state.data} editable={canUpdate} onSaved={() => { setSavedNotice('카메라 접속 설정을 저장했습니다.'); state.reload() }} />}
-    <Link className="icon-btn" to={workflowPath('/capture-policies', { plantId: device.plant_id, planId })}>다음: 자동 촬영 정책 설정</Link>
+    {onPolicies ? <button className="icon-btn" onClick={onPolicies}>다음: 자동 촬영 정책 설정</button> : onPolicies !== null && <Link className="icon-btn" to={workflowPath('/capture-policies', { plantId: device.plant_id, planId })}>다음: 자동 촬영 정책 설정</Link>}
   </section>
 }
 

@@ -7,7 +7,7 @@ import { CameraNav, CameraScope, RuntimeStatus, useCameraScope } from '../compon
 import { PlanSummary } from '../components/FarmingWorkflow'
 import { MutationStatus, QueryStatus, useWorkflowMutation, useWorkflowQuery } from '../components/WorkflowUI'
 
-function CapturePolicyForm({ policy, scope, devices, plans, onSaved }) {
+export function CapturePolicyForm({ policy, scope, devices, plans, onSaved, embedded = false, onOpenCamera }) {
   const { plantId, params, hasPermission } = scope
   const initialPlan = !policy && plans?.find(p => p.plan_id === params.get('plan') && p.status === 'scheduled')
   const [form, setForm] = useState(() => policy ? { ...policy, farming_plan_id: policy.farming_plan_id || '', activity_type: policy.activity_type || '', valid_from: policy.valid_from || '', valid_to: policy.valid_to || '',
@@ -63,11 +63,11 @@ function CapturePolicyForm({ policy, scope, devices, plans, onSaved }) {
         <label>카메라<select aria-label={`촬영 카메라 ${i + 1}`} required value={c.camera_device_id} onChange={e => row('cameras', i, 'camera_device_id', e.target.value)}><option value="">카메라 선택</option>{c.camera_device_id && !devices.some(d => d.device_id === c.camera_device_id) && <option value={c.camera_device_id}>기존 카메라 · {c.camera_device_id}</option>}{devices.map(d => <option key={d.device_id} value={d.device_id} disabled={d.status !== 'active' || form.cameras.some((other, index) => index !== i && other.camera_device_id === d.device_id)}>{d.name}{d.status !== 'active' ? ' · 비활성 장비' : ''}</option>)}</select></label>
         <label>우선순위<input aria-label={`카메라 ${i + 1} 우선순위`} type="number" min={1} max={1000} required value={c.priority} onChange={e => row('cameras', i, 'priority', e.target.value)} /></label>
         <label className="camera-check"><input type="checkbox" checked={c.enabled} onChange={e => row('cameras', i, 'enabled', e.target.checked)} />카메라 {i + 1} 사용</label>
-      </div><RuntimeStatus cameraId={c.camera_device_id} plantId={plantId} planId={form.farming_plan_id} /><button type="button" className="icon-btn" onClick={() => remove('cameras', i)}>카메라 {i + 1} 삭제</button></section>)}</div>
+      </div><RuntimeStatus cameraId={c.camera_device_id} plantId={plantId} planId={form.farming_plan_id} onOpen={onOpenCamera} /><button type="button" className="icon-btn" onClick={() => remove('cameras', i)}>카메라 {i + 1} 삭제</button></section>)}</div>
       <button type="button" className="icon-btn" onClick={() => update('cameras', [...form.cameras, { camera_device_id: '', priority: form.cameras.length + 1, enabled: true }])}>촬영 카메라 추가</button>
       {editable && <button type="submit" className="btn-primary">{mutation.busy ? '저장 중…' : policy ? '촬영 정책 저장' : '촬영 정책 등록'}</button>}
     </fieldset>
-    {plan && <PlanSummary plan={plan} />}{validation && <p role="alert" className="workflow-error">{validation}</p>}<MutationStatus state={mutation} />
+    {plan && !embedded && <PlanSummary plan={plan} />}{validation && <p role="alert" className="workflow-error">{validation}</p>}<MutationStatus state={mutation} />
     {policy && hasPermission('camera_capture:update') && <><button type="button" className="icon-btn" disabled={mutation.busy} onClick={() => mutation.run(() => apiUpdateCameraPolicy(policy.policy_id, { enabled: !policy.enabled }), onSaved)}>{policy.enabled ? '정책 비활성화' : '저장된 정책 활성화'}</button><p className="camera-help">저장된 정책의 사용 여부만 변경합니다. 편집 중인 입력은 저장하지 않습니다.</p></>}
   </form>
 }

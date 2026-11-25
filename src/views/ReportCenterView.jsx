@@ -22,7 +22,7 @@ function message(e) {
 function ErrorBox({ error, retry }) {
   return <div className="report-message report-error" role="alert">{error}{retry && <div><button className="icon-btn" onClick={retry}>다시 불러오기</button></div>}</div>
 }
-function Download({ report }) {
+export function Download({ report }) {
   const { hasPermission } = useApp()
   const allowed = hasPermission('report:download')
   const [busy, setBusy] = useState(false)
