@@ -133,8 +133,10 @@ export function AppProvider({ children }) {
 
   // 백엔드 실발전소 목록 조회
   const refreshBackend = useCallback(async () => {
+    const token = getToken()
     try {
       const data = await apiGetPlants()
+      if (token !== getToken()) return
       const items = data?.items || []
       setBackendPlants(items.map(mapPlant))
       setConnected(items.length > 0)
@@ -144,6 +146,7 @@ export function AppProvider({ children }) {
         setPlantId((prev) => items.some((p) => p.plant_id === prev) ? prev : firstId)
       }
     } catch {
+      if (token !== getToken()) return
       setConnected(false)
       setBackendPlants([])
     }
@@ -151,17 +154,18 @@ export function AppProvider({ children }) {
 
   // 저장된 JWT 로 세션 복원 + 백엔드 데이터 로드
   useEffect(() => {
-    if (!getToken()) return
+    const token = getToken()
+    if (!token) return
     let alive = true
     apiGetMe()
       .then(async (me) => {
-        if (!alive) return
+        if (!alive || token !== getToken()) return
         if (me) {
           if (alive) setUser(currentUser(me))
         }
         refreshBackend()
       })
-      .catch(() => setToken(null))
+      .catch(() => { if (alive && token === getToken()) setToken(null) })
     return () => {
       alive = false
     }
@@ -169,7 +173,7 @@ export function AppProvider({ children }) {
 
   // 선택 발전소 실시간 현황 (연결 + 백엔드 발전소일 때만, 30초 주기)
   useEffect(() => {
-    if (!connected || !isBackendPlant) {
+    if (!connected || !isBackendPlant || !userHasPermission(user, 'telemetry:read')) {
       setLive(null)
       setLiveState('idle')
       return
@@ -193,11 +197,11 @@ export function AppProvider({ children }) {
       alive = false
       clearInterval(t)
     }
-  }, [connected, isBackendPlant, plantId])
+  }, [connected, isBackendPlant, plantId, user])
 
   // 선택 발전소 장비 목록(인버터 모델 표기용). 권한이 없거나 실패하면 null.
   useEffect(() => {
-    if (!connected || !isBackendPlant) {
+    if (!connected || !isBackendPlant || !userHasPermission(user, 'device:read')) {
       setDevices(null)
       return
     }
@@ -208,7 +212,7 @@ export function AppProvider({ children }) {
     return () => {
       alive = false
     }
-  }, [connected, isBackendPlant, plantId])
+  }, [connected, isBackendPlant, plantId, user])
 
   // Open-Meteo 날씨 (백엔드 환경센서가 없을 때 폴백). 백엔드 발전소는 등록 좌표 기준이고,
   // 좌표가 없으면 다른 지역(데모 기본 원주) 예보를 이 발전소 날씨처럼 보여주지 않도록 조회하지 않는다.
@@ -425,6 +429,30 @@ export function AppProvider({ children }) {
     return () => window.removeEventListener(AUTH_EXPIRED_EVENT, onExpired)
   }, [logout])
   const clearSessionExpired = useCallback(() => setSessionExpired(false), [])
+
+  // Other tabs share the token. Clear the previous identity immediately while
+  // restoring the new account so its permissions never remain on the old header.
+  useEffect(() => {
+    let generation = 0, alive = true
+    const syncAccount = async event => {
+      if (event.storageArea !== localStorage || (event.key !== 'dongyang_token' && event.key !== null)) return
+      const version = ++generation, token = getToken()
+      setUser(null); setBackendPlants([]); setConnected(false); setLive(null); setDevices(null); setLiveState('idle'); setPlantId(DEFAULT_PLANT_ID)
+      if (!token) return
+      try {
+        const [me, data] = await Promise.all([apiGetMe(), apiGetPlants()])
+        if (!alive || version !== generation || token !== getToken()) return
+        setUser(currentUser(me)); setSessionExpired(false)
+        const items = data?.items || []
+        setBackendPlants(items.map(mapPlant)); setConnected(items.length > 0)
+        if (items.length) setPlantId(items[0].plant_id)
+      } catch {
+        if (alive && version === generation && token === getToken()) setSessionExpired(true)
+      }
+    }
+    window.addEventListener('storage', syncAccount)
+    return () => { alive = false; window.removeEventListener('storage', syncAccount) }
+  }, [])
 
   // 역할 메뉴 그룹: admin(시스템 관리자) | official(지자체 감독관) | owner(발전사업자)
   const menuRole = menuRoleOf(user)

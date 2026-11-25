@@ -5,6 +5,11 @@ import { apiGetPlants, apiVisionCameras, apiDetectTractor } from '../lib/api'
 import './CctvEvidenceView.css'
 import { canRunVision } from '../lib/uiPolicy'
 import VisionHistory from './VisionHistory'
+import { useSearchParams } from 'react-router-dom'
+import FarmingWorkflow, { PlanSummary } from '../components/FarmingWorkflow'
+import { useWorkflowQuery, QueryStatus } from '../components/WorkflowUI'
+import { apiFarmingPlan } from '../lib/api'
+import { CameraNav } from '../components/CameraWorkflow'
 
 // 테스트용 샘플 영상(public/samples) — Pexels 무료 영상 8349494(트랙터 건초 작업)를 1280x720·15fps VP8 로 줄인 것
 const SAMPLE = {
@@ -28,7 +33,7 @@ function capture(video) {
 
 // 비전 분석 API 가 배포되지 않은 서버(404)면 'Not Found' 대신 원인을 안내
 const visionMessage = (e) =>
-  e?.status === 403 ? 'AI 분석 또는 조회 권한이 없습니다.' : e?.status === 404 ? '이 서버에는 비전 분석 API(/vision)가 아직 배포되지 않았습니다.' : e.message
+  e?.status === 403 ? 'AI 분석 또는 조회 권한이 없습니다.' : e?.status === 404 ? '대상 카메라 또는 분석 정보를 찾을 수 없습니다. 목록을 새로 조회해 주세요.' : e?.status === 429 ? '분석 서버가 사용 중입니다. 잠시 후 다시 시도하세요.' : [503, 504].includes(e?.status) ? '카메라 또는 분석 서비스가 응답하지 않습니다. 잠시 후 다시 시도하세요.' : e.message
 
 function seekVideo(video, time) {
   return new Promise((resolve, reject) => {
@@ -56,6 +61,9 @@ function seekVideo(video, time) {
 
 export default function CctvEvidenceView() {
   const { user, hasPermission } = useApp()
+  const [params, setParams] = useSearchParams()
+  const requestedPlantId = params.get('plant')
+  const requestedPlanId = params.get('plan')
   const canRun = canRunVision(user)
   const [plants, setPlants] = useState([])
   const [plantId, setPlantId] = useState('')
@@ -91,10 +99,17 @@ export default function CctvEvidenceView() {
     let alive = true
     stop(); setPlants([]); setPlantId(''); setLatestResult(null); setSelectedResult(null); setHistory([])
     if (authenticated) apiGetPlants().then(data => {
-      if (alive) { setPlants(data.items || []); setPlantId(data.items?.[0]?.plant_id || '') }
+      if (alive) { setPlants(data.items || []); setPlantId(data.items?.some(p => p.plant_id === requestedPlantId) ? requestedPlantId : data.items?.[0]?.plant_id || '') }
     }).catch(e => { if (alive) setError(e.message) })
     return () => { alive = false; controller.current?.abort(); sequence.current += 1 }
-  }, [authenticated, user?.email])
+  }, [authenticated, user?.email, requestedPlantId])
+
+  const plan = useWorkflowQuery(async signal => {
+    if (!plantId || !requestedPlanId || !hasPermission('farming_plan:read')) return null
+    const data = await apiFarmingPlan(requestedPlanId, signal)
+    if (data.plant_id !== plantId) throw new Error('선택한 발전소의 계획이 아닙니다. 계획을 다시 선택해 주세요.')
+    return data
+  }, [plantId, requestedPlanId])
 
   useEffect(() => {
     const abort = new AbortController()
@@ -208,10 +223,14 @@ export default function CctvEvidenceView() {
     <header className="tractor-header">
       <div><div className="view-title"><Tractor size={22} /> CCTV 트랙터·사람 인식 <span className="badge badge-neutral">AI 탐지 후보</span></div>
         <p className="view-sub">{canRun ? '동영상으로 탐지를 시작하고, 분석한 프레임에서 트랙터와 사람을 확인하세요.' : '발전소별로 저장된 분석 결과와 증빙을 확인하세요.'}</p></div>
-      <select aria-label="분석 발전소" className="plant-select" value={plantId} disabled={busy || running} onChange={e => resetSource(() => setPlantId(e.target.value))}>
+      <select aria-label="분석 발전소" className="plant-select" value={plantId} disabled={busy || running} onChange={e => resetSource(() => { setPlantId(e.target.value); setParams({ plant: e.target.value }, { replace: true }) })}>
         <option value="">발전소 선택</option>{plants.map(p => <option key={p.plant_id} value={p.plant_id}>{p.name}</option>)}
       </select>
     </header>
+    <FarmingWorkflow current="evidence" context={{ plantId, planId: plan.data?.plan_id }} />
+    <CameraNav current="/cctv" plantId={plantId} planId={plan.data?.plan_id} />
+    {requestedPlanId && <><QueryStatus state={plan} /><PlanSummary plan={plan.data} /></>}
+    <p className="workflow-next">분석 결과를 검수자가 확정하면 담당자가 증빙을 첨부해 영농활동을 제출할 수 있습니다. 증빙 검토와 활동 검토는 각각 진행됩니다.</p>
     {!authenticated && <div className="tractor-notice">실제 계정으로 로그인하면 접근 가능한 발전소의 영상을 분석할 수 있습니다.</div>}
     {canRun ? <><div className="tractor-layout">
       <section className="card tractor-source">
@@ -234,7 +253,7 @@ export default function CctvEvidenceView() {
           <select aria-label="CCTV 카메라" className="plant-select" value={cameraId} onChange={e => resetSource(() => setCameraId(e.target.value))}>
             <option value="">카메라 선택</option>{cameras.map(c => <option key={c.camera_id} value={c.camera_id}>{c.name}</option>)}
           </select>
-          <div className="tractor-empty"><Camera size={44} /><strong>{cameraId ? 'CCTV 프레임 분석 준비' : '등록된 CCTV가 없습니다'}</strong><span>{cameraError || '서버에 등록된 RTSP 카메라에서 프레임을 받아 분석합니다.'}</span></div>
+          <div className="tractor-empty"><Camera size={44} /><strong>{cameraId ? '수동 분석용 CCTV 선택됨' : '수동 분석용 CCTV가 없습니다'}</strong><span>{cameraError || '이 목록은 수동 분석용 카메라 목록입니다. 자동 촬영 카메라는 관리자 카메라 설정·촬영 정책에서 별도로 관리합니다.'}</span></div>
         </>}
         <div className="tractor-controls">
           <label>탐지 기준 점수 <b>{threshold.toFixed(2)}</b><input aria-label="탐지 기준 점수" type="range" min="0.1" max="0.9" step="0.05" value={threshold} disabled={busy || running} onChange={e => setThreshold(Number(e.target.value))} /></label>
@@ -276,7 +295,7 @@ export default function CctvEvidenceView() {
       </button>)}</div> : <div className="tractor-log-empty">분석을 시작하면 프레임 이미지와 탐지 결과가 로그에 추가됩니다.</div>}
     </section>
     </> : <p role="status" className="tractor-notice">{hasPermission('vision:review') ? '저장된 분석 결과를 조회하고 검토할 수 있습니다. 이 계정에서는 분석을 실행하지 않습니다.' : '저장된 분석 결과를 조회할 수 있습니다.'}</p>}
-    {authenticated && plantId && <VisionHistory key={`${user.userId}:${plantId}`} plantId={plantId} refresh={latestResult?.analysis_no} />}
+    {authenticated && plantId && <VisionHistory key={`${user.userId}:${plantId}`} plantId={plantId} planId={plan.data?.plan_id} analysisId={params.get('evidence')} refresh={latestResult?.analysis_no} />}
     <p className="text-muted">트랙터·사람의 존재를 탐지하는 초기 모델입니다. 작업 여부·경운/파종 종류는 아직 판정하지 않습니다. 같은 대상이 여러 프레임에 나타나므로 이력을 작업 횟수로 합산하지 마세요.</p>
   </div>
 }

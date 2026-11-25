@@ -3,8 +3,8 @@ import { apiAssessmentAnalysis, apiReportEvidenceImage, apiVisionReviews } from 
 import { useWorkflowQuery, QueryStatus, ReviewHistory } from '../components/WorkflowUI'
 import { workflowTime, workflowStates, workflowError } from '../lib/workflow'
 
-export default function ActivityEvidence({ id }) {
-  const [open, setOpen] = useState(false), [kind, setKind] = useState('annotated')
+export default function ActivityEvidence({ id, defaultOpen = false }) {
+  const [open, setOpen] = useState(defaultOpen), [kind, setKind] = useState('annotated')
   return <div><button type="button" className="icon-btn" onClick={() => setOpen(v => !v)} aria-expanded={open}>{open ? '증빙 닫기' : '증빙 상세 보기'}</button>
     {open && <EvidenceDetails id={id} kind={kind} setKind={setKind} />}</div>
 }

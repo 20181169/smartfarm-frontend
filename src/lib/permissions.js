@@ -21,6 +21,8 @@ export const ROUTE_PERMISSIONS = {
   '/anomalies': ['farming_activity:read'],
   '/inspection': ['farming_activity:review'],
   '/cctv': ['vision:read'],
+  '/camera-settings': ['camera_runtime:read'],
+  '/capture-policies': ['camera_capture:read'],
   '/plan-assessment': ['farming_plan:read', 'farming_assessment:read'],
   '/compliance-report': ['report:read'],
 }

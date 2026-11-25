@@ -6,6 +6,7 @@
    ========================================================================== */
 
 import { availableEvidence } from './workflow.js'
+import { cameraError } from './camera.js'
 
 const BASE = import.meta.env.VITE_API_BASE || '/api/v1'
 const TOKEN_KEY = 'dongyang_token'
@@ -66,7 +67,7 @@ async function request(path, { method = 'GET', body, auth = true, signal, respon
 
   if (!res.ok) {
     // 보낸 토큰이 만료·무효(백엔드 JWT 기본 30분) → 토큰을 지우고 앱에 알린다(AppContext 가 로그아웃 + 재로그인 안내).
-    if (res.status === 401 && auth && token) {
+    if (res.status === 401 && auth && token && token === getToken()) {
       setToken(null)
       globalThis.dispatchEvent?.(new Event(AUTH_EXPIRED_EVENT))
     }
@@ -109,7 +110,7 @@ async function assessmentPages(path, params = {}, signal) {
 export const apiAssessmentPlants = (signal) => assessmentPages('/plants', {}, signal)
 export const apiGetRegions = (signal) => request('/regions', { signal })
 export const apiCreateFarmingPlan = (body) => request('/farming-plans', { method: 'POST', body })
-export const apiVisionAnalyses = (plantId, skip = 0, signal) => request(`/vision/analyses?${new URLSearchParams({ plant_id: plantId, skip, limit: 20 })}`, { signal })
+export const apiVisionAnalyses = (plantId, skip = 0, signal, filters = {}) => request(`/vision/analyses?${new URLSearchParams({ plant_id: plantId, skip, limit: 20, ...filters })}`, { signal })
 export const apiReviewVision = (id, body) => request(`/vision/analyses/${encodeURIComponent(id)}/review`, { method: 'PATCH', body })
 export const apiFarmingPlans = (plantId, signal) => assessmentPages('/farming-plans', { plant_id: plantId }, signal)
 export const apiFarmingPlan = (id, signal) => request(`/farming-plans/${encodeURIComponent(id)}`, { signal })
@@ -186,6 +187,25 @@ export function apiGetMe() {
 export function apiVisionCameras(plantId, signal) {
   return request(`/vision/cameras?plant_id=${encodeURIComponent(plantId)}`, { signal })
 }
+
+/* Camera registry for automatic capture: database devices, not the legacy Vision registry. */
+export async function apiCameraDevices(plantId, signal) {
+  const data = await request(`/devices?${new URLSearchParams({ plant_id: plantId })}`, { signal })
+  return (data?.items || []).filter(d => d.device_type === 'camera' && d.plant_id === plantId)
+}
+export const apiCreateCameraDevice = body => request('/devices', { method: 'POST', body: { ...body, device_type: 'camera' } })
+export async function apiCameraRuntime(id, signal) {
+  try { return await request(`/camera-runtime-configs/${encodeURIComponent(id)}`, { signal }) }
+  catch (e) { if (e.name === 'AbortError') throw e; throw new ApiError(cameraError(e, true), e.status, e.code) }
+}
+export async function apiSaveCameraRuntime(id, body) {
+  try { return await request(`/camera-runtime-configs/${encodeURIComponent(id)}`, { method: 'PUT', body }) }
+  catch (e) { throw new ApiError(cameraError(e, true), e.status, e.code) }
+}
+export const apiCameraPolicies = (plantId, signal) => assessmentPages('/camera-capture-policies', { plant_id: plantId }, signal)
+export const apiCameraPolicy = (id, signal) => request(`/camera-capture-policies/${encodeURIComponent(id)}`, { signal })
+export const apiCreateCameraPolicy = body => request('/camera-capture-policies', { method: 'POST', body })
+export const apiUpdateCameraPolicy = (id, body) => request(`/camera-capture-policies/${encodeURIComponent(id)}`, { method: 'PATCH', body })
 
 export async function apiDetectTractor({ plantId, cameraId, blob, threshold, signal }) {
   const query = new URLSearchParams({ plant_id: plantId, threshold: String(threshold) })
@@ -661,6 +681,29 @@ export const apiUpdatePlan = (id, body) => request(`/farming-plans/${encodeURICo
 export const apiCancelPlan = (id, body) => request(`/farming-plans/${encodeURIComponent(id)}/cancel`, { method: 'PATCH', body })
 export const apiMatchCandidates = (id, signal) => assessmentPages(`/farming-plans/${encodeURIComponent(id)}/match-candidates`, {}, signal)
 export const apiMatchActivity = (id, body) => request(`/farming-plans/${encodeURIComponent(id)}/matches`, { method: 'POST', body })
+// No new API contract: join scoped plans with their existing server-owned links.
+export async function apiWorkflowContext(plantId, signal) {
+  const plans = await apiFarmingPlans(plantId, signal)
+  const matches = []
+  for (let i = 0; i < plans.length; i += 5) {
+    signal?.throwIfAborted()
+    const batch = await Promise.all(plans.slice(i, i + 5).map(async plan =>
+      (await apiPlanMatches(plan.plan_id, signal)).map(match => ({ ...match, plan }))
+    ))
+    matches.push(...batch.flat())
+  }
+  return { plans, matches }
+}
+export async function apiEvidenceUsage(plantId, signal) {
+  const activities = await apiFarmingActivities(plantId, signal)
+  const usage = new Map()
+  for (let i = 0; i < activities.length; i += 5) {
+    signal?.throwIfAborted()
+    const details = await Promise.all(activities.slice(i, i + 5).map(a => apiFarmingActivity(a.event_id, signal)))
+    for (const activity of details) for (const evidence of activity.evidence || []) usage.set(evidence.analysis_id, activity)
+  }
+  return usage
+}
 export async function apiAvailableEvidence(plantId, ownEventId, signal) {
   const [analyses, activities] = await Promise.all([
     assessmentPages('/vision/analyses', { plant_id: plantId, status: 'confirmed' }, signal),

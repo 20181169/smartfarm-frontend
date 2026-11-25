@@ -3,6 +3,7 @@ import { ShieldCheck, MapPin, ListChecks, ClipboardCheck, Lock, Database } from 
 import { useApp } from '../context/useApp'
 import { apiGetPlants, getToken } from '../lib/api'
 import { AGRI_ADMIN_DATA, complianceBadge } from '../data/compliance'
+import ReviewerTasks from '../components/ReviewerTasks'
 
 const { summary, sites, priorityWatchlist, recentReports } = AGRI_ADMIN_DATA
 const DEMO_SITES = Object.values(sites)
@@ -175,6 +176,7 @@ export default function OversightView() {
         </div>
       </div>
 
+      <ReviewerTasks />
       {/* KPI 요약 */}
       {isBackend ? (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12 }}>

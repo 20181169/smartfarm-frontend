@@ -20,6 +20,8 @@ const ITEM = {
   siteDetail: { to: '/site-detail', label: '사업장상세', icon: ClipboardList },
   anomalies: { to: '/anomalies', label: '이상징후', icon: ShieldAlert },
   cctv: { to: '/cctv', label: 'CCTV 트랙터 인식', icon: Video },
+  cameraSettings: { to: '/camera-settings', label: '카메라 설정', icon: Video },
+  capturePolicies: { to: '/capture-policies', label: '자동 촬영 정책', icon: ClipboardList },
   complianceReport: { to: '/compliance-report', label: '이행리포트', icon: FileCheck2 },
   inspection: { to: '/inspection', label: '현장점검', icon: ClipboardCheck },
   settings: { to: '/settings', label: '설정', icon: Settings },
@@ -50,7 +52,12 @@ export function navigationItems(user, menuRole) {
   const ordered = NAV_BY_ROLE[menuRole] || NAV_BY_ROLE.owner
   // Role only orders menus. Permission-bearing screens are available to every
   // account that the server grants access, including operators and viewers.
-  const items = [ITEM.farmingWorkspace, ...ordered, ...Object.values(ITEM).filter((item) => ROUTE_PERMISSIONS[item.to])]
+  const reviewsActivities = hasPermission(user, 'farming_activity:review')
+  const reviewsReports = hasPermission(user, 'report:approve')
+  const reviewTasks = reviewsActivities || reviewsReports ? [ITEM.agriDashboard, ...(reviewsActivities ? [ITEM.myCompliance] : []), ...(reviewsReports ? [ITEM.complianceReport] : [])] : []
+  const cameraTasks = [ITEM.cameraSettings, ITEM.capturePolicies].filter(item => ROUTE_PERMISSIONS[item.to].every(code => hasPermission(user, code)))
+  const items = [ITEM.farmingWorkspace, ...reviewTasks, ...cameraTasks, ...ordered, ...Object.values(ITEM).filter((item) => ROUTE_PERMISSIONS[item.to])]
   return items.filter((item, i) => items.findIndex((x) => x.to === item.to) === i)
     .filter((item) => !ROUTE_PERMISSIONS[item.to] || ROUTE_PERMISSIONS[item.to].every((code) => hasPermission(user, code)))
+    .map(item => item.to === '/my-compliance' && reviewsActivities ? { ...item, label: '영농활동 검토', search: '?review=1' } : item.to === '/compliance-report' && reviewsReports ? { ...item, label: '보고서 검토·서명', search: '?review=1' } : item)
 }

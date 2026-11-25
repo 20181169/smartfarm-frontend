@@ -4,6 +4,9 @@ import { useApp } from '../context/useApp'
 import { apiReportPlants, apiFarmingReport, apiGenerateFarmingReport, apiReportArchive, apiDownloadFarmingReport, apiReportEvidenceImage } from '../lib/api'
 import './ReportCenterView.css'
 import ReportApproval from './ReportApproval'
+import { Link, useSearchParams } from 'react-router-dom'
+import FarmingWorkflow from '../components/FarmingWorkflow'
+import { activityTypeLabel, workflowPath } from '../lib/workflow'
 
 const PHASES = { waiting: '대기', monitoring: '관찰 중', review_required: '검토 필요', excluded: '평가 제외' }
 const RESULTS = { fulfilled: '이행', not_fulfilled: '미이행', unable_to_determine: '판단 불가' }
@@ -49,7 +52,7 @@ function Download({ report }) {
   if (!allowed) return null
   return <div><button className="icon-btn" disabled={busy} onClick={download}><FileDown size={14} />{busy ? '다운로드 중…' : 'PDF 다운로드'}</button>{error && <ErrorBox error={error} />}</div>
 }
-function Evidence({ evidence }) {
+function Evidence({ evidence, plantId, planId }) {
   const { hasPermission } = useApp()
   const canView = hasPermission('vision:read')
   const [open, setOpen] = useState(false)
@@ -69,6 +72,7 @@ function Evidence({ evidence }) {
   return <div className="report-evidence">
     <div className="report-row"><span>{time(evidence.evidence_at)} · {STATUSES[evidence.status] || evidence.status}</span>
       {imageType ? <button className="icon-btn" aria-expanded={open} onClick={() => setOpen(!open)}>{open ? '증빙 닫기' : '증빙 이미지 보기'}</button> : <span className="text-muted">{canView ? '저장된 이미지 없음' : '증빙 이미지 조회 권한 없음'}</span>}</div>
+    {canView && <Link to={workflowPath('/cctv', { plantId, planId, analysisId: evidence.analysis_id })}>증빙 상세 · 검토 이력</Link>}
     <p className="report-copy">탐지: {evidence.detections?.length ? evidence.detections.map((d) => `${d.label}${Number.isFinite(d.confidence) ? ` ${(d.confidence * 100).toFixed(1)}%` : ''}`).join(' · ') : '탐지 객체 없음'}</p>
     {evidence.latest_review && <p className="report-copy">최근 검토: {STATUSES[evidence.latest_review.new_status] || evidence.latest_review.new_status} · {evidence.latest_review.comment || '의견 없음'}</p>}
     {open && (state.loading ? <p role="status">증빙을 불러오는 중입니다.</p> : state.error ? <ErrorBox error={state.error} /> : state.url && <img src={state.url} alt="보고서 영농활동 AI 증빙" />)}
@@ -97,14 +101,16 @@ function ReportBody({ data }) {
     <h3>계획별 활동 · 증빙</h3>
     {!data.plans.length ? <p>선택한 기간에 해당하는 영농계획이 없습니다.</p> : data.plans.map((plan) => <details className="report-plan" key={plan.plan_id}>
       <summary><strong>{plan.title}</strong> <span className="badge badge-neutral">{PHASES[plan.phase] || plan.phase}</span> <span className="badge badge-neutral">{RESULTS[plan.final_assessment] || '미평가'}</span></summary>
-      <p>{plan.planned_start_date} ~ {plan.planned_end_date} · {plan.activity_type}{plan.plan_status === 'cancelled' ? ' · 취소된 계획' : ''}</p>
+      <p>{plan.planned_start_date} ~ {plan.planned_end_date} · {activityTypeLabel(plan.activity_type)}{plan.plan_status === 'cancelled' ? ' · 취소된 계획' : ''}</p>
+      <Link className="icon-btn" to={workflowPath('/plan-assessment', { plantId: data.plant_id || plant.plant_id, planId: plan.plan_id })}>이 계획의 평가 · 연결 상태</Link>
       {plan.description && <p className="report-copy">{plan.description}</p>}
       <p>유효 활동 {num(plan.valid_event_count)}건 · 무효화 {num(plan.invalidated_event_count)}건{plan.latest_assessed_at && ` · 최근 평가 ${time(plan.latest_assessed_at)}`}</p>
       {!plan.matched_events?.length ? <p>연결된 활동이 없습니다.</p> : plan.matched_events.map((event) => <section className="report-event" key={event.event_id}>
         <h4>{event.title} · {event.is_valid_evidence ? '유효 활동' : '유효 활동으로 집계되지 않음'}</h4>
         <p>{time(event.started_at)} · {STATUSES[event.event_status] || event.event_status}</p>
+        <Link to={workflowPath('/my-compliance', { plantId: data.plant_id || plant.plant_id, planId: plan.plan_id, eventId: event.event_id })}>활동 상세 · 검토 결과</Link>
         {event.description && <p className="report-copy">{event.description}</p>}
-        {event.vision_evidence?.length ? event.vision_evidence.map((ev) => <Evidence key={ev.analysis_id} evidence={ev} />) : <p>연결된 AI 증빙이 없습니다.</p>}
+        {event.vision_evidence?.length ? event.vision_evidence.map((ev) => <Evidence key={ev.analysis_id} evidence={ev} plantId={data.plant_id || plant.plant_id} planId={plan.plan_id} />) : <p>연결된 AI 증빙이 없습니다.</p>}
       </section>)}
     </details>)}
   </>
@@ -152,7 +158,7 @@ function ReportPreview({ query, onBusy, onGenerated }) {
     {state.loading ? <p role="status">보고서를 불러오는 중입니다.</p> : state.error ? <ErrorBox error={state.error} retry={() => setReload((v) => v + 1)} /> : <ReportBody data={state.data} />}
   </section>
 }
-function Archive({ plantId, refresh }) {
+function Archive({ plantId, refresh, reviewMode }) {
   const [skip, setSkip] = useState(0)
   const [reload, setReload] = useState(0)
   const [state, setState] = useState({ loading: true })
@@ -166,23 +172,24 @@ function Archive({ plantId, refresh }) {
     return () => controller.abort()
   }, [plantId, skip, reload, refresh])
   return <section className="card" aria-label="보관된 PDF 보고서">
-    <div className="report-row"><h2 className="card-title">보관된 PDF 보고서</h2><button className="icon-btn" onClick={() => { setSkip(0); setReload((v) => v + 1) }}><RefreshCw size={14} /> 보관 목록 새로고침</button></div>
+    <div className="report-row"><h2 className="card-title">{reviewMode ? '검토할 PDF 보고서' : '보관된 PDF 보고서'}</h2><button className="icon-btn" onClick={() => { setSkip(0); setReload((v) => v + 1) }}><RefreshCw size={14} /> 보관 목록 새로고침</button></div>
+    {reviewMode && <p className="workflow-next">각 파일의 승인 상태를 확인하고 <b>‘보고서 검토·서명’</b>을 누르세요. PDF 확인과 승인·반려 입력 화면이 열립니다.</p>}
     <p className="text-muted">선택한 발전소의 전체 기간 보고서입니다. 생성된 PDF는 생성 당시 내용을 유지합니다.</p>
     {state.loading ? <p role="status">보관 목록을 불러오는 중입니다.</p> : state.error ? <ErrorBox error={state.error} retry={() => setReload((v) => v + 1)} /> : <>
       {!state.data.items.length ? <p>보관된 보고서가 없습니다.</p> : <ul className="report-archives">{state.data.items.map((report) => <li key={report.report_id}>
-        <div><strong>{report.period}</strong><p className="report-copy">{report.file_name}</p><p className="text-muted">발행 {time(report.issued_at)}</p></div><Download report={report} /><ReportApproval reportId={report.report_id} />
+        <div><strong>{report.period}</strong><p className="report-copy">{report.file_name}</p><p className="text-muted">발행 {time(report.issued_at)}</p></div><Download report={report} /><ReportApproval reportId={report.report_id} report={report} />
       </li>)}</ul>}
       {state.data.total > 20 && <div className="report-row"><button className="icon-btn" disabled={!skip} onClick={() => setSkip(Math.max(0, skip - 20))}>이전</button><span>{Math.floor(skip / 20) + 1} / {Math.ceil(state.data.total / 20)} 페이지 · 총 {state.data.total}건</span><button className="icon-btn" disabled={skip + 20 >= state.data.total} onClick={() => setSkip(skip + 20)}>다음</button></div>}
     </>}
   </section>
 }
-function Workspace({ initialPlantId }) {
+function Workspace({ initialPlantId, initialFrom, initialTo, planId, reviewMode }) {
   const [plants, setPlants] = useState(null)
   const [plantError, setPlantError] = useState('')
   const [plantReload, setPlantReload] = useState(0)
   const [plantId, setPlantId] = useState('')
-  const [from, setFrom] = useState(() => today().slice(0, 7) + '-01')
-  const [to, setTo] = useState(today)
+  const [from, setFrom] = useState(() => /^\d{4}-\d{2}-\d{2}$/.test(initialFrom || '') ? initialFrom : today().slice(0, 7) + '-01')
+  const [to, setTo] = useState(() => /^\d{4}-\d{2}-\d{2}$/.test(initialTo || '') ? initialTo : today())
   const [query, setQuery] = useState(null)
   const [version, setVersion] = useState(0)
   const [busy, setBusy] = useState(false)
@@ -207,25 +214,30 @@ function Workspace({ initialPlantId }) {
     setQuery({ plant_id: plantId, from_date: from, to_date: to }); setVersion((v) => v + 1)
   }
   return <>
+    <FarmingWorkflow current="report" context={{ plantId, planId, from, to }} />
     <section className="card">
       {plantError ? <ErrorBox error={plantError} retry={() => setPlantReload((v) => v + 1)} /> : !plants ? <p role="status">발전소 목록을 불러오는 중입니다.</p> : !plants.length ? <p>조회 가능한 발전소가 없습니다.</p> : <form onSubmit={submit}>
-        <div className="report-controls">
+        <div className="report-controls" style={reviewMode ? { gridTemplateColumns: 'minmax(0, 1fr) auto' } : undefined}>
           <label>보고서 대상 발전소<select className="input" aria-label="보고서 대상 발전소" disabled={busy} value={plantId} onChange={(e) => { if (e.target.value === plantId) return; setPlantId(e.target.value); setQuery(null) }}>{plants.map((p) => <option value={p.plant_id} key={p.plant_id}>{p.name}</option>)}</select></label>
-          <label>시작일<input className="input" aria-label="시작일" type="date" required disabled={busy} value={from} onChange={(e) => { setFrom(e.target.value); setQuery(null) }} /></label>
-          <label>종료일<input className="input" aria-label="종료일" type="date" required disabled={busy} value={to} onChange={(e) => { setTo(e.target.value); setQuery(null) }} /></label>
-          <button className="btn-primary" disabled={busy || !valid} type="submit">보고서 조회</button>
+          {reviewMode ? <Link className="icon-btn" to={workflowPath('/compliance-report', { plantId, planId, from, to })}>기간별 이행현황 조회</Link> : <>
+            <label>시작일<input className="input" aria-label="시작일" type="date" required disabled={busy} value={from} onChange={(e) => { setFrom(e.target.value); setQuery(null) }} /></label>
+            <label>종료일<input className="input" aria-label="종료일" type="date" required disabled={busy} value={to} onChange={(e) => { setTo(e.target.value); setQuery(null) }} /></label>
+            <button className="btn-primary" disabled={busy || !valid} type="submit">보고서 조회</button>
+          </>}
         </div>
-        {!valid && <p className="report-message" role="alert">시작일과 종료일을 확인해 주세요. 종료일은 시작일 이후여야 합니다.</p>}
+        {!reviewMode && !valid && <p className="report-message" role="alert">시작일과 종료일을 확인해 주세요. 종료일은 시작일 이후여야 합니다.</p>}
       </form>}
     </section>
-    {query ? <ReportPreview key={`${query.plant_id}:${query.from_date}:${query.to_date}:${version}`} query={query} onBusy={setBusy} onGenerated={() => setArchiveVersion((v) => v + 1)} /> : plantId && <p className="report-message">조건을 선택한 뒤 ‘보고서 조회’를 눌러 주세요.</p>}
-    {plantId && <Archive key={`${plantId}:${archiveVersion}`} plantId={plantId} refresh={archiveVersion} />}
+    {!reviewMode && (query ? <ReportPreview key={`${query.plant_id}:${query.from_date}:${query.to_date}:${version}`} query={query} onBusy={setBusy} onGenerated={() => setArchiveVersion((v) => v + 1)} /> : plantId && <p className="report-message">조건을 선택한 뒤 ‘보고서 조회’를 눌러 주세요.</p>)}
+    {plantId && <Archive key={`${plantId}:${archiveVersion}`} plantId={plantId} refresh={archiveVersion} reviewMode={reviewMode} />}
   </>
 }
 export default function ReportCenterView() {
-  const { user, plantId } = useApp()
+  const { user, plantId, hasPermission } = useApp()
+  const [params] = useSearchParams()
+  const reviewMode = hasPermission('report:approve') && params.get('review') === '1'
   return <div className="view stack report-center">
-    <div><div className="view-title"><FileCheck2 size={20} /> 영농이행 리포트 센터</div><div className="view-sub">발전소별 계획·평가·활동 증빙을 조회하고 PDF 보고서를 생성합니다.</div></div>
-    {user?.source === 'api' ? <Workspace key={user.email} initialPlantId={plantId} /> : <div className="card">실제 계정으로 로그인하면 담당 발전소의 보고서를 조회할 수 있습니다.</div>}
+    <div><div className="view-title"><FileCheck2 size={20} /> {reviewMode ? '보고서 검토·서명' : '영농이행 리포트 센터'}</div><div className="view-sub">{reviewMode ? '보관된 PDF 보고서를 선택해 내용을 검토하고 승인·반려 및 서명 기록을 남깁니다.' : '발전소별 계획·평가·활동 증빙을 조회하고 PDF 보고서를 생성합니다.'}</div></div>
+    {user?.source === 'api' ? <Workspace key={`${user.email}:${params}`} initialPlantId={params.get('plant') || plantId} initialFrom={params.get('from')} initialTo={params.get('to')} planId={params.get('plan')} reviewMode={reviewMode} /> : <div className="card">실제 계정으로 로그인하면 담당 발전소의 보고서를 조회할 수 있습니다.</div>}
   </div>
 }

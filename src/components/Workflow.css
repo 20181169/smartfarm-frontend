@@ -15,3 +15,37 @@
 .workflow-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin: 16px 0; }
 .workflow-summary dt { color: var(--text-2); font-size: 12px; }
 .workflow-summary dd { margin: 5px 0; overflow-wrap: anywhere; }
+.workflow-guide { padding: 16px 18px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg-card); }
+.workflow-guide > p { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 12px; color: var(--text-2); font-size: 12px; line-height: 1.7; }
+.workflow-guide nav { display: flex; flex-wrap: wrap; gap: 8px; }
+.workflow-guide nav a { display: inline-flex; align-items: center; gap: 7px; padding: 9px 12px; border: 1px solid var(--border); border-radius: 8px; color: var(--text); text-decoration: none; font-size: 13px; }
+.workflow-guide nav a.is-current { background: var(--bg-subtle); border-color: var(--sage); color: var(--sage-dark, var(--text)); font-weight: 700; }
+.workflow-plan-context { display: flex; justify-content: space-between; align-items: center; gap: 14px; flex-wrap: wrap; padding: 16px; border: 1px solid var(--border); border-left: 4px solid var(--sage); border-radius: 10px; background: var(--bg-subtle); }
+.workflow-plan-context strong, .workflow-eyebrow { display: block; }
+.workflow-plan-context p { margin: 6px 0 0; font-size: 13px; }
+.workflow-eyebrow { font-size: 11px; color: var(--text-2); margin-bottom: 6px; }
+.workflow-next { padding: 12px 14px; border-radius: 8px; background: var(--bg-subtle); font-size: 13px; line-height: 1.8; }
+.workflow-notice { padding: 12px 14px; border: 1px solid var(--border); border-left: 3px solid var(--sage); border-radius: 8px; line-height: 1.8; }
+.workflow-warning { padding: 12px 14px; border: 1px solid var(--border); border-left: 3px solid var(--terracotta); border-radius: 8px; background: var(--bg-subtle); line-height: 1.8; }
+.workflow-list > li.is-selected { border-color: var(--sage); background: var(--bg-subtle); }
+.workflow-list .workflow-link-state { margin-top: 8px; font-size: 12px; }
+.workflow-context-controls { display: grid; grid-template-columns: 1fr 1.6fr; gap: 14px; }
+.workflow-context-controls label { display: grid; gap: 6px; font-size: 13px; }
+.workflow-context-controls select { width: 100%; min-width: 0; padding: 10px; border: 1px solid var(--border); border-radius: 8px; color: var(--text); background: var(--bg-card); }
+.workflow-form :disabled { opacity: .6; cursor: not-allowed; }
+.workflow-card-heading { display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+.workflow-link-state a { color: var(--sage-dark, var(--text)); text-decoration: underline; }
+.workflow-evidence .workflow-evidence-choice { display: grid; grid-template-columns: auto 1fr; align-items: start; gap: 10px; }
+.workflow-evidence-choice small { display: block; color: var(--text-2); margin-top: 4px; }
+@media (max-width: 650px) { .workflow-context-controls { grid-template-columns: 1fr; } .workflow-guide nav a { flex: 1 1 42%; } }
+.reviewer-tasks h2 { font-size: 18px; margin: 0 0 8px; }
+.reviewer-task-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 14px; margin-top: 16px; }
+.reviewer-task { display: flex; align-items: flex-start; gap: 14px; padding: 20px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-subtle); color: var(--text); text-decoration: none; }
+.reviewer-task:hover, .reviewer-task:focus-visible { border-color: var(--sage); outline: 2px solid var(--sage); outline-offset: 2px; }
+.reviewer-task > svg { flex-shrink: 0; }
+.reviewer-task strong { font-size: 17px; }
+.reviewer-task p { color: var(--text-2); font-size: 13px; line-height: 1.7; margin: 10px 0; }
+.reviewer-task span { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; }
+.workflow-review-panel { scroll-margin-top: 80px; }
+.workflow-queue-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.workflow-queue-tabs button[aria-pressed=true] { border-color: var(--sage); background: var(--bg-subtle); font-weight: 700; }

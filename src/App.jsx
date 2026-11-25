@@ -21,6 +21,8 @@ import OversightView from './views/OversightView'
 import SiteDetailView from './views/SiteDetailView'
 import RiskCenterView from './views/RiskCenterView'
 import CctvEvidenceView from './views/CctvEvidenceView'
+import CameraSettingsView from './views/CameraSettingsView'
+import CapturePoliciesView from './views/CapturePoliciesView'
 import ReportCenterView from './views/ReportCenterView'
 import FarmingActivitiesView from './views/FarmingActivitiesView'
 import ErrorsView from './views/ErrorsView'
@@ -116,6 +118,8 @@ export default function App() {
             path="cctv"
             element={<RequirePermission permissions={ROUTE_PERMISSIONS['/cctv']}><CctvEvidenceView /></RequirePermission>}
           />
+          <Route path="camera-settings" element={<RequirePermission permissions={ROUTE_PERMISSIONS['/camera-settings']}><CameraSettingsView /></RequirePermission>} />
+          <Route path="capture-policies" element={<RequirePermission permissions={ROUTE_PERMISSIONS['/capture-policies']}><CapturePoliciesView /></RequirePermission>} />
 
           <Route
             path="compliance-report"

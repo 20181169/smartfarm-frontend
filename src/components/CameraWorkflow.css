@@ -1,0 +1,27 @@
+.camera-nav { display: flex; flex-wrap: wrap; gap: 8px; }
+.camera-nav a { text-decoration: none; }
+.camera-nav .is-current { border-color: var(--sage); font-weight: 700; background: var(--bg-subtle); }
+.camera-scope label { display: grid; gap: 6px; max-width: 650px; }
+.camera-scope select { padding: 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text); width: 100%; }
+.camera-layout { display: grid; grid-template-columns: minmax(240px, .8fr) minmax(0, 2fr); gap: 18px; align-items: start; }
+.camera-panel { min-width: 0; scroll-margin-top: 90px; }
+.camera-panel h2, .camera-panel h3 { margin-bottom: 10px; }
+.camera-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.camera-repeat { display: grid; gap: 10px; }
+.camera-repeat > section { padding: 14px; border: 1px solid var(--border); border-radius: 8px; min-width: 0; }
+.camera-repeat h4 { margin: 0 0 12px; }
+.camera-check { display: flex !important; flex-direction: row; align-items: center; gap: 8px !important; }
+.camera-check input { width: auto; }
+.camera-masked { display: block; padding: 10px; background: var(--bg-subtle); border-radius: 6px; overflow-wrap: anywhere; white-space: pre-wrap; }
+.camera-list { padding: 0; margin: 14px 0; list-style: none; display: grid; gap: 10px; }
+.camera-list li { padding: 14px; border: 1px solid var(--border); border-radius: 8px; overflow-wrap: anywhere; }
+.camera-list li[aria-current=true] { border-color: var(--sage); background: var(--bg-subtle); }
+.camera-list p { margin: 8px 0; font-size: 13px; }
+.camera-runtime-status { font-size: 12px; line-height: 1.8; display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+.camera-help { font-size: 12px; color: var(--text-2); line-height: 1.8; }
+.camera-filter { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; }
+.camera-filter label { flex: 1 1 150px; }
+.camera-filter button { min-height: 38px; }
+.camera-panel :disabled { opacity: .65; }
+@media (max-width: 950px) { .camera-layout { grid-template-columns: 1fr; } }
+@media (max-width: 600px) { .camera-grid { grid-template-columns: 1fr; } .camera-nav a { flex: 1 1 40%; justify-content: center; } }

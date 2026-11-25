@@ -10,10 +10,10 @@ export default function Sidebar({ open, onClose }) {
     <>
       <aside className={`sidebar ${open ? 'open' : ''}`}>
         <ul className="nav-list">
-          {items.map(({ to, label, icon: Icon, end }) => (
+          {items.map(({ to, search, label, icon: Icon, end }) => (
             <li key={to}>
               <NavLink
-                to={to}
+                to={search ? { pathname: to, search } : to}
                 end={end}
                 className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
                 onClick={onClose}

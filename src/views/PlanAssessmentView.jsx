@@ -8,7 +8,9 @@ import {
 import './PlanAssessmentView.css'
 import PlanCreateForm from './PlanCreateForm'
 import PlanActions from './PlanActions'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
+import FarmingWorkflow from '../components/FarmingWorkflow'
+import { activityTypeLabel, planActivityIssues, workflowDate, workflowPath } from '../lib/workflow'
 
 const RESULTS = { fulfilled: '이행', not_fulfilled: '미이행', unable_to_determine: '판단 불가' }
 const PHASES = { waiting: '대기', monitoring: '관찰 중', review_required: '검토 필요', excluded: '평가 제외' }
@@ -65,12 +67,13 @@ function Evidence({ evidence }) {
   </div>
 }
 
-function Activity({ match, valid, invalid }) {
+function Activity({ match, valid, invalid, plan }) {
   const { hasPermission } = useApp()
   const canRead = hasPermission('farming_activity:read')
   const [opened, setOpened] = useState(false)
   const [state, setState] = useState({ loading: true })
   const [reload, setReload] = useState(0)
+  const issues = planActivityIssues(plan, { plant_id: plan.plant_id, activity_type: match.activity_type, started_at: match.event_started_at })
   useEffect(() => {
     if (!opened || !canRead) return undefined
     const controller = new AbortController()
@@ -82,10 +85,12 @@ function Activity({ match, valid, invalid }) {
   }, [opened, match.event_id, reload, canRead])
   return <div className="assessment-activity">
     <div className="assessment-row"><strong>{match.event_title}</strong>
-      <span className="badge badge-neutral">{valid ? '유효 증빙' : invalid ? '무효화된 증빙' : '유효 증빙으로 집계되지 않음'}</span></div>
-    <div className="text-muted">{match.activity_type} · {fmtTime(match.event_started_at)} · {STATUSES[match.event_status] || match.event_status}</div>
+      <span className="badge badge-neutral">{issues.length ? '연결 조건 확인 필요' : valid ? '유효 증빙' : invalid ? '무효화된 증빙' : '유효 증빙으로 집계되지 않음'}</span></div>
+    <div className="text-muted">{activityTypeLabel(match.activity_type)} · {fmtTime(match.event_started_at)} · {STATUSES[match.event_status] || match.event_status}</div>
+    {!!issues.length && <div className="workflow-warning">{issues.map(issue => <p key={issue}>{issue}</p>)}</div>}
     {match.comment && <p className="assessment-copy">연결 의견: {match.comment}</p>}
     <button className="icon-btn" disabled={!canRead} aria-expanded={opened} onClick={() => setOpened((v) => !v)}>{opened ? '활동 닫기' : '활동·증빙 확인'}</button>
+    {canRead && <Link className="icon-btn" to={workflowPath('/my-compliance', { plantId: plan.plant_id, planId: plan.plan_id, eventId: match.event_id })}>활동 상세 · 검토 이력</Link>}
     {opened && (state.loading ? <p role="status">활동을 불러오는 중입니다.</p> : state.error ? <Failure error={state.error} retry={() => setReload((v) => v + 1)} /> : <>
       <p className="assessment-copy">{state.data.description || '활동 설명이 없습니다.'}</p>
       {state.data.evidence?.length ? state.data.evidence.map((ev) => <Evidence key={ev.analysis_id} evidence={ev} />) : <p>연결된 영상 증빙이 없습니다.</p>}
@@ -119,7 +124,7 @@ function PlanDetail({ planId, canAssess, onBusy, onPlanChanged }) {
   }, [planId, reload, canReadMatches])
   const save = async (event) => {
     event.preventDefault()
-    if (posting.current || actionBusy || !canAssess || !result || !comment.trim() || state.loading || state.error || state.plan.status === 'cancelled' || state.preview.phase === 'excluded') return
+    if (posting.current || actionBusy || !canAssess || !result || !comment.trim() || state.loading || state.error || state.plan.status === 'cancelled' || state.preview.phase === 'excluded' || workflowDate() <= state.plan.planned_end_date) return
     posting.current = true
     setSaving(true); onBusy(true); setSaveError(''); setNotice('')
     try {
@@ -141,11 +146,24 @@ function PlanDetail({ planId, canAssess, onBusy, onPlanChanged }) {
   const { plan, preview, matches, history } = state
   const excluded = plan.status === 'cancelled' || preview.phase === 'excluded'
   const validIds = new Set(preview.valid_event_ids || [])
+  const evaluationReady = workflowDate() > plan.planned_end_date
+  const evaluationDate = new Date(`${plan.planned_end_date}T00:00:00Z`)
+  evaluationDate.setUTCDate(evaluationDate.getUTCDate() + 1)
+  const context = { plantId: plan.plant_id, planId: plan.plan_id }
   return <>
+    <FarmingWorkflow current="plan" context={context} />
     <div className="card">
       <div className="assessment-row"><h2 style={{ fontSize: 18 }}>{plan.title}</h2><button className="icon-btn" disabled={saving || actionBusy} onClick={() => setReload((v) => v + 1)}><RefreshCw size={14} /> 평가 새로고침</button></div>
-      <p className="text-muted">{plan.activity_type} · {plan.planned_start_date} ~ {plan.planned_end_date} · {plan.status === 'cancelled' ? '취소된 계획' : '등록된 계획'}</p>
+      <p className="text-muted">{activityTypeLabel(plan.activity_type)} · {plan.planned_start_date} ~ {plan.planned_end_date} · {plan.status === 'cancelled' ? '취소된 계획' : '등록된 계획'}</p>
       {plan.description && <p className="assessment-copy">{plan.description}</p>}
+      <div className="workflow-actions" style={{ margin: '14px 0' }}>
+        {hasPermission('farming_activity:create') && !excluded && <Link className="btn-primary" to={workflowPath('/my-compliance', { ...context, create: true })}>이 계획의 활동 등록</Link>}
+        {hasPermission('farming_activity:read') && <Link className="icon-btn" to={workflowPath('/my-compliance', context)}>{hasPermission('farming_activity:review') ? '활동 검토 · 계획 연결' : '활동 · 연결 상태 확인'}</Link>}
+        {hasPermission('vision:read') && <Link className="icon-btn" to={workflowPath('/cctv', context)}>AI 증빙 준비 · 확인</Link>}
+        {hasPermission('camera_capture:create') && hasPermission('camera_capture:read') && !excluded && <Link className="icon-btn" to={workflowPath('/capture-policies', { ...context, create: true })}>이 계획의 자동 촬영 설정</Link>}
+        {hasPermission('report:read') && <Link className="icon-btn" to={workflowPath('/compliance-report', { ...context, from: plan.planned_start_date, to: plan.planned_end_date })}>이 기간의 보고서</Link>}
+      </div>
+      <p className="workflow-next">{excluded ? '취소된 계획입니다. 기존 활동과 평가 이력을 확인할 수 있습니다.' : matches.length ? '연결된 활동과 증빙을 확인하세요. 최종 이행 평가는 계획 기간이 끝난 뒤 진행합니다.' : '다음 단계: AI 증빙을 준비하고 활동을 제출하세요. 검수자가 활동을 확정하고 이 계획에 연결합니다.'}</p>
       <PlanActions plan={plan} matches={matches} onBusy={setActionBusy} disabled={saving} onDone={() => onPlanChanged(plan.plan_id)} />
       <div className="assessment-metrics">
         <div>진행 단계<b>{PHASES[preview.phase] || '확인 필요'}</b></div>
@@ -159,7 +177,7 @@ function PlanDetail({ planId, canAssess, onBusy, onPlanChanged }) {
       <section className="card" aria-label="연결된 활동 및 증빙">
         <h3 className="card-title">연결된 활동 · 증빙 ({matches.length}건)</h3>
         <p className="view-sub">증빙 유효 여부는 현재 계획 평가에 반영된 서버 조회 결과입니다.</p>
-        {!canReadMatches ? <p>계획에 연결된 활동을 조회할 권한이 없습니다.</p> : matches.length ? matches.map((match) => <Activity key={match.match_id} match={match} valid={validIds.has(match.event_id)} invalid={match.event_status === 'cancelled'} />)
+        {!canReadMatches ? <p>계획에 연결된 활동을 조회할 권한이 없습니다.</p> : matches.length ? matches.map((match) => <Activity key={match.match_id} plan={plan} match={match} valid={validIds.has(match.event_id)} invalid={match.event_status === 'cancelled'} />)
           : <p>이 계획에 연결된 영농활동이 없습니다.</p>}
       </section>
       <section className="card" aria-label="평가 입력">
@@ -167,12 +185,13 @@ function PlanDetail({ planId, canAssess, onBusy, onPlanChanged }) {
         {!canAssess ? <p className="assessment-message">조회 전용입니다. 이행평가 수정 권한이 있는 계정에서 등록할 수 있습니다.</p>
           : excluded ? <p className="assessment-message">취소되었거나 평가에서 제외된 계획입니다. 기존 평가 이력만 확인할 수 있습니다.</p>
             : <form className="assessment-form" onSubmit={save}>
+              {!evaluationReady && <p className="workflow-notice">최종 이행 평가는 계획 종료 다음 날인 <b>{evaluationDate.toISOString().slice(0, 10)}</b>부터 가능합니다. 지금은 활동 제출·검토·계획 연결을 진행하세요.</p>}
               <p className="view-sub">연결된 활동과 증빙을 확인한 뒤 결과와 판단 근거를 입력해 주세요.</p>
-              <label>평가 결과<select aria-label="평가 결과" className="input" required value={result} disabled={saving || actionBusy} onChange={(e) => setResult(e.target.value)}><option value="">결과 선택</option>{Object.entries(RESULTS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
-              <label>평가 의견<textarea aria-label="평가 의견" className="input" rows={5} required maxLength={2000} value={comment} disabled={saving || actionBusy} placeholder="평가 근거를 입력하세요." onChange={(e) => setComment(e.target.value)} /></label>
+              <label>평가 결과<select aria-label="평가 결과" className="input" required value={result} disabled={!evaluationReady || saving || actionBusy} onChange={(e) => setResult(e.target.value)}><option value="">결과 선택</option>{Object.entries(RESULTS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
+              <label>평가 의견<textarea aria-label="평가 의견" className="input" rows={5} required maxLength={2000} value={comment} disabled={!evaluationReady || saving || actionBusy} placeholder="평가 근거를 입력하세요." onChange={(e) => setComment(e.target.value)} /></label>
               <div className="text-muted">{comment.length.toLocaleString()} / 2,000자 · 저장한 결과는 평가 이력에 남습니다.</div>
               {saveError && <Failure error={saveError} />}
-              <button className="btn-terracotta" disabled={saving || actionBusy || !result || !comment.trim()} type="submit">{saving ? '저장 중…' : '평가 저장'}</button>
+              <button className="btn-terracotta" disabled={!evaluationReady || saving || actionBusy || !result || !comment.trim()} type="submit">{saving ? '저장 중…' : '평가 저장'}</button>
             </form>}
       </section>
     </div>
@@ -188,7 +207,7 @@ function PlanDetail({ planId, canAssess, onBusy, onPlanChanged }) {
   </>
 }
 
-function AssessmentWorkspace({ initialPlantId, canAssess }) {
+function AssessmentWorkspace({ initialPlantId, requestedPlanId, canAssess, onSelect }) {
   const createdPlan = useRef(null)
   const [createdNotice, setCreatedNotice] = useState('')
   const [plants, setPlants] = useState(null)
@@ -216,17 +235,17 @@ function AssessmentWorkspace({ initialPlantId, canAssess }) {
     const controller = new AbortController()
     setPlans(null); setPlanId(''); setPlanError('')
     if (plantId) apiFarmingPlans(plantId, controller.signal).then((items) => {
-      if (!controller.signal.aborted) { setPlans(items); setPlanId(items.some(p => p.plan_id === createdPlan.current) ? createdPlan.current : items[0]?.plan_id || ''); createdPlan.current = null }
+      if (!controller.signal.aborted) { setPlans(items); setPlanId(items.some(p => p.plan_id === createdPlan.current) ? createdPlan.current : items.some(p => p.plan_id === requestedPlanId) ? requestedPlanId : items[0]?.plan_id || ''); createdPlan.current = null }
     }).catch((e) => { if (!controller.signal.aborted) setPlanError(errorText(e)) })
     return () => controller.abort()
-  }, [plantId, planReload])
+  }, [plantId, planReload, requestedPlanId])
   return <>
     <div className="card">
       {plantError ? <Failure error={plantError} retry={() => setPlantReload((v) => v + 1)} /> : !plants ? <p role="status">발전소 목록을 불러오는 중입니다.</p>
         : !plants.length ? <p>조회 가능한 발전소가 없습니다. 담당 발전소 배정을 확인해 주세요.</p> : <>
           <div className="assessment-controls">
             <label>평가 대상 발전소<select aria-label="평가 대상 발전소" className="input" value={plantId} disabled={busy} onChange={(e) => { if (e.target.value === plantId) return; setPlantId(e.target.value); setPlanId(''); setPlans(null); setCreatedNotice(''); createdPlan.current = null }}>{plants.map((p) => <option key={p.plant_id} value={p.plant_id}>{p.name}</option>)}</select></label>
-            <label>영농계획<select aria-label="영농계획" className="input" value={planId} disabled={busy || !plans?.length} onChange={(e) => setPlanId(e.target.value)}>
+            <label>영농계획<select aria-label="영농계획" className="input" value={planId} disabled={busy || !plans?.length} onChange={(e) => { setPlanId(e.target.value); onSelect(plantId, e.target.value) }}>
               {!plans?.length && <option value="">{planError ? '조회 실패' : plans ? '등록된 계획 없음' : '불러오는 중…'}</option>}
               {plans?.map((p) => <option key={p.plan_id} value={p.plan_id}>{p.title} ({p.planned_start_date} ~ {p.planned_end_date}){p.status === 'cancelled' ? ' · 취소' : ''}</option>)}
             </select></label>
@@ -238,7 +257,7 @@ function AssessmentWorkspace({ initialPlantId, canAssess }) {
     </div>
     {createdNotice && <p role="status">{createdNotice}</p>}
     {plantId && <PlanCreateForm key={plantId} plantId={plantId} disabled={busy} onBusy={setBusy} onCreated={plan => {
-      createdPlan.current = plan.plan_id; setCreatedNotice('영농계획을 등록했습니다.'); setPlanReload(v => v + 1)
+      createdPlan.current = plan.plan_id; setCreatedNotice('영농계획을 등록했습니다. 다음으로 AI 증빙을 준비하고 활동을 제출하세요.'); setPlanReload(v => v + 1); onSelect(plantId, plan.plan_id)
     }} />}
     {plantId && planId && <PlanDetail key={`${plantId}:${planId}`} planId={planId} canAssess={canAssess} onBusy={setBusy} onPlanChanged={id => { createdPlan.current = id; setCreatedNotice('계획 변경사항을 반영했습니다.'); setPlanReload(v => v + 1) }} />}
   </>
@@ -246,11 +265,11 @@ function AssessmentWorkspace({ initialPlantId, canAssess }) {
 
 export default function PlanAssessmentView() {
   const { user, plantId, hasPermission } = useApp()
+  const [params, setParams] = useSearchParams()
   return <div className="view stack plan-assessment">
     <div><div className="view-title"><ClipboardCheck size={20} /> 영농계획 이행 평가</div><div className="view-sub">계획별 활동·증빙을 확인하고 평가 결과와 이력을 관리합니다.</div></div>
-    {hasPermission('farming_activity:read') && <Link to="/my-compliance">영농활동 등록 · 검토 · 재제출</Link>}
     {user?.source === 'api'
-      ? <AssessmentWorkspace key={user.email} initialPlantId={plantId} canAssess={hasPermission('farming_assessment:update')} />
+      ? <AssessmentWorkspace key={`${user.email}:${params.get('plant') || ''}`} initialPlantId={params.get('plant') || plantId} requestedPlanId={params.get('plan')} onSelect={(plant, plan) => setParams({ plant, plan }, { replace: true })} canAssess={hasPermission('farming_assessment:update')} />
       : <div className="card" role="status">실제 계정으로 로그인하면 담당 발전소의 계획과 평가 이력을 확인할 수 있습니다.</div>}
   </div>
 }

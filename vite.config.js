@@ -23,7 +23,8 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
         },
         '/api/v1/vision': {
-          target: env.VITE_VISION_API_TARGET || 'http://127.0.0.1:8011',
+          // 기본은 동일 백엔드. 로컬 추론 서버는 환경변수로 명시해 사용한다.
+          target: env.VITE_VISION_API_TARGET || apiTarget,
           changeOrigin: true,
           timeout: 200000,
           proxyTimeout: 200000,
